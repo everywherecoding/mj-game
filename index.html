@@ -2397,6 +2397,9 @@ function renderResult(){
   if(G.phase==='finished'){
     wrap.style.display='flex';
     if(_resultKey!=='finished'){ _resultKey='finished'; renderFinalResult(); }
+    // 不管DOM有沒有重建,都重綁按鈕onclick(防止onclick因任何原因遺失)
+    const fb=$('btnFinalNew');
+    if(fb) fb.onclick=()=>{ if(G) G.players.forEach(p=>p.score=0); newGame(false); };
     return;
   }
   if(G.phase!=='over'){ wrap.style.display='none'; _resultKey=null; return; }
@@ -2407,31 +2410,33 @@ function renderResult(){
   // 用一個 key 代表目前結算內容；若沒變就不重建 DOM（否則每次 render 都重設 innerHTML
   // 會把使用者正要點的「下一局/看總結算」按鈕換成新節點，導致點擊落空、看似沒反應）
   const key = G.phase+'|'+(r? (r.draw?'draw':(r.seat+'_'+r.taiTotal+'_'+r.payEach)) :'none')+'|'+rno+'/'+rtot;
-  if(key===_resultKey) return;   // 內容沒變 → 不重建，保留現有按鈕與其事件
-  _resultKey = key;
-  const roundTag = rtot>=999? '' : '<div class="sub" style="color:var(--gold)">第 '+rno+' / '+rtot+' 局</div>';
-  const isLast = (rtot<999 && rno>=rtot && !(r&&r.draw));
-  const nextLabel = isLast? '看總結算' : '下一局';
-  if(r&&r.draw){
-    c.innerHTML='<h2>流局</h2>'+roundTag+'<div class="sub">牌牆已盡，無人胡牌（莊家續莊）</div>'+
-      '<button class="go" style="margin-top:10px" id="btnNext">續局</button>';
-  }else if(r){
-    const p=G.players[r.seat];
-    let taiHtml=r.items.map(it=>'<div class="tai-row"><span>'+it.name+'</span><b>'+it.tai+' 台</b></div>').join('');
-    if(!taiHtml) taiHtml='<div class="tai-row"><span>無台（雞胡）</span><b>0 台</b></div>';
-    c.innerHTML=
-      '<h2>'+escapeHtml(p.name)+(r.selfDraw?' 自摸':' 胡牌')+'</h2>'+
-      roundTag+
-      '<div class="sub">'+(r.selfDraw?'三家各付':(G.players[r.loser].name+' 放槍'))+'</div>'+
-      '<div class="winhand" id="rHand"></div>'+
-      '<div class="tai-list">'+taiHtml+'</div>'+
-      '<div class="total">合計 <b>'+r.taiTotal+'</b> 台（每家付 '+r.payEach+'）</div>'+
-      '<button class="go" id="btnNext">'+nextLabel+'</button>';
-    const rh=$('rHand');
-    r.hand.forEach(t=>rh.appendChild(tileEl(t)));
-    r.melds.forEach(m=>{ const sep=document.createElement('div'); sep.style.width='8px'; rh.appendChild(sep);
-      m.tiles.forEach(t=>rh.appendChild(tileEl(t))); });
+  if(key!==_resultKey){
+    _resultKey = key;
+    const roundTag = rtot>=999? '' : '<div class="sub" style="color:var(--gold)">第 '+rno+' / '+rtot+' 局</div>';
+    const isLast = (rtot<999 && rno>=rtot && !(r&&r.draw));
+    const nextLabel = isLast? '看總結算' : '下一局';
+    if(r&&r.draw){
+      c.innerHTML='<h2>流局</h2>'+roundTag+'<div class="sub">牌牆已盡，無人胡牌（莊家續莊）</div>'+
+        '<button class="go" style="margin-top:10px" id="btnNext">續局</button>';
+    }else if(r){
+      const p=G.players[r.seat];
+      let taiHtml=r.items.map(it=>'<div class="tai-row"><span>'+it.name+'</span><b>'+it.tai+' 台</b></div>').join('');
+      if(!taiHtml) taiHtml='<div class="tai-row"><span>無台（雞胡）</span><b>0 台</b></div>';
+      c.innerHTML=
+        '<h2>'+escapeHtml(p.name)+(r.selfDraw?' 自摸':' 胡牌')+'</h2>'+
+        roundTag+
+        '<div class="sub">'+(r.selfDraw?'三家各付':(G.players[r.loser].name+' 放槍'))+'</div>'+
+        '<div class="winhand" id="rHand"></div>'+
+        '<div class="tai-list">'+taiHtml+'</div>'+
+        '<div class="total">合計 <b>'+r.taiTotal+'</b> 台（每家付 '+r.payEach+'）</div>'+
+        '<button class="go" id="btnNext">'+nextLabel+'</button>';
+      const rh=$('rHand');
+      r.hand.forEach(t=>rh.appendChild(tileEl(t)));
+      r.melds.forEach(m=>{ const sep=document.createElement('div'); sep.style.width='8px'; rh.appendChild(sep);
+        m.tiles.forEach(t=>rh.appendChild(tileEl(t))); });
+    }
   }
+  // 不管 key 有沒有變,每次 render 都重綁 onclick(防止 onclick 因任何原因遺失)
   const nb=$('btnNext'); if(nb) nb.onclick=()=>{ nextRound(); };
 }
 
