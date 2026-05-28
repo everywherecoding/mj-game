@@ -114,7 +114,8 @@
     font-family:'Noto Serif TC',serif;font-size:36px;font-weight:900;color:var(--gold);
     text-shadow:0 2px 6px rgba(0,0,0,.6);line-height:1;
   }
-  #center .dealer-tag{font-size:11px;color:var(--muted);}
+  #center .dealer-tag{font-size:11px;color:var(--muted);white-space:nowrap;display:flex;flex-direction:column;align-items:center;line-height:1.3;}
+  #center .dealer-tag .d-line{white-space:nowrap;}
   #center .last-discard{
     margin-top:2px;font-size:11px;color:var(--text);min-height:16px;text-align:center;
   }
@@ -188,9 +189,13 @@
   body.wide #wideLast .wl-label{color:var(--muted);font-size:13px;white-space:nowrap;}
   body.wide #wideLast .wl-tile .tile{ width:34px;height:48px;font-size:20px; }
   /* 自己手牌置底（橫式螢幕矮，牌高度要控制避免頂到中央） */
-  body.wide .seat-bottom{ bottom:8px;width:98vw; }
-  body.wide .seat-bottom .hand{ --tw: min(44px, calc((98vw - 40px) / 17)); gap:3px; }
-  body.wide .seat-bottom .meld .tile{ width:26px;height:36px;font-size:15px; }
+  body.wide .seat-bottom{ bottom:6px;width:94vw;left:50%;transform:translateX(-50%); }
+  body.wide .seat-bottom .hand{
+    --tw: min(40px, calc((90vw - 80px) / 17));
+    gap:2px; padding:0 8px;
+  }
+  body.wide .seat-bottom .meld .tile{ width:24px;height:34px;font-size:14px; }
+  body.wide .myrow{ max-width:94vw; gap:10px; }
 
   /* 橫式螢幕矮：回應面板(吃碰槓胡)整體縮小、限高可捲動，避免按鈕被擠出畫面 */
   body.wide #respond{
@@ -199,10 +204,45 @@
   }
   body.wide #respond .rtitle{font-size:14px;}
   body.wide #respond .rtile .tile{width:30px;height:42px;font-size:18px;}
-  body.wide #respond .chi-opts{flex-direction:row;flex-wrap:wrap;gap:5px;}
-  body.wide #respond .chi-opt{padding:4px;}
+  body.wide #respond .chi-opts{flex-direction:row;flex-wrap:wrap;gap:12px;justify-content:center;}
+  body.wide #respond .chi-opt{
+    padding:6px 8px;gap:2px;
+    border:2px solid var(--gold-deep);          /* 明顯金邊讓組合區隔清楚 */
+    background:rgba(60,46,26,.55);
+    border-radius:8px;
+    transition:transform .12s, border-color .12s, background .12s;
+  }
+  body.wide #respond .chi-opt:hover,
+  body.wide #respond .chi-opt:active{
+    border-color:var(--gold);background:rgba(90,68,38,.85);transform:translateY(-2px);
+  }
   body.wide #respond .chi-opt .tile{width:24px;height:34px;font-size:14px;}
   body.wide .act-btn{font-size:14px;padding:7px 16px;}
+
+  /* 對手副露彈窗(橫式時點對手條觸發) */
+  #oppMeldPopup{
+    display:none;position:absolute;inset:0;z-index:70;
+    align-items:center;justify-content:center;
+    background:rgba(0,0,0,.7);backdrop-filter:blur(3px);
+  }
+  #oppMeldPopup .omp-card{
+    background:linear-gradient(180deg,#241a10,#15100a);
+    border:2px solid var(--gold);border-radius:14px;padding:18px 22px;
+    min-width:240px;max-width:92vw;text-align:center;box-shadow:0 0 40px rgba(232,196,104,.3);
+  }
+  #oppMeldPopup .omp-title{font-family:'Noto Serif TC',serif;font-size:18px;color:var(--gold);margin-bottom:12px;}
+  #oppMeldPopup .omp-empty{color:var(--muted);font-size:14px;padding:14px 0;}
+  #oppMeldPopup .omp-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+  #oppMeldPopup .omp-meld{display:flex;align-items:center;gap:10px;padding:6px;background:rgba(0,0,0,.25);border-radius:6px;}
+  #oppMeldPopup .omp-type{color:var(--gold);font-size:13px;font-weight:700;min-width:36px;}
+  #oppMeldPopup .omp-tiles{display:flex;gap:2px;}
+  #oppMeldPopup .omp-tiles .tile{width:28px;height:40px;font-size:16px;}
+  #oppMeldPopup .omp-close{
+    margin-top:4px;padding:8px 24px;border-radius:8px;border:1px solid var(--gold-deep);
+    background:#241a10;color:var(--gold);font-family:inherit;cursor:pointer;
+  }
+  body.wide #wideOppBar .opp.has-melds{ border-color:var(--gold-deep); }
+  body.wide #wideOppBar .opp .ml{ color:#5fb98a; font-size:11px; }
 
   /* ===== 精簡模式（手機直式自動開啟）=====
      顯示對手牌背(小尺寸,有真實打牌感)+名牌+剩餘張數+副露，放大自己手牌 */
@@ -210,18 +250,20 @@
   body.compact .seat-left .oppbacks .tile.back,
   body.compact .seat-right .oppbacks .tile.back{ width:15px;height:11px; } /* 左右家牌背:更小直排,避免擠 */
   body.compact .nameplate .hcount{ display:inline; }       /* 同時顯示剩餘張數 */
-  /* 上家:固定貼頂; 牌背+副露同一行,副露靠右並與牌背保留間隔 */
+  /* 上家:固定貼頂; 牌背在上,副露在牌背下方水平排列(對牌背置中) */
   body.compact .seat-top{ top:4px; max-height:30vh; flex-direction:column; align-items:center; }
   body.compact .seat-top .toprow{
-    display:flex; align-items:center; justify-content:center;
-    gap:18px; max-width:96vw;     /* 牌背與副露之間的間隔 */
+    display:flex; flex-direction:column; align-items:center;   /* 改垂直堆疊:牌背上、副露下 */
+    gap:4px; max-width:96vw;
   }
-  body.compact .seat-top .oppbacks{ flex-wrap:wrap; justify-content:center; flex-shrink:1; }
-  body.compact .seat-top .melds{ flex-direction:row; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
+  body.compact .seat-top .oppbacks{ flex-wrap:wrap; justify-content:center; }
+  body.compact .seat-top .melds{
+    flex-direction:row; flex-wrap:wrap; justify-content:center;  /* 副露水平左到右、置中 */
+  }
   /* 左右兩家:固定垂直範圍,寬度限制不侵入中央,內容過多可捲動 */
   body.compact .seat-left, body.compact .seat-right{
-    top:12%; bottom:auto; transform:none;
-    max-width:60px; max-height:63vh;
+    top:20%; bottom:auto; transform:none;
+    max-width:60px; max-height:55vh;
     flex-direction:column; align-items:center;
     overflow-y:auto; overflow-x:hidden;
   }
@@ -254,6 +296,14 @@
   body.compact .dz-discards .tile{ width:min(3.4vw,22px);height:min(4.8vw,32px); }
   /* 自己手牌:左右多留邊距,避免最邊牌貼邊或被光暈遮 */
   body.compact .seat-bottom{ width:92vw; bottom:12px; }
+  /* 直式精簡:回應面板上移避免遮住手牌 */
+  body.compact #respond{
+    top:36%; padding:12px 16px; gap:6px;
+  }
+  body.compact #respond .rtitle{ font-size:14px; }
+  body.compact #respond .rtile .tile{ width:32px;height:44px;font-size:18px; }
+  body.compact #respond .chi-opt .tile{ width:26px;height:36px;font-size:14px; }
+  body.compact .act-btn{ font-size:14px;padding:8px 18px; }
   body.compact .seat-bottom .hand{
     --tw: min(42px, calc((88vw - 70px) / 17));
     padding:0 12px;
@@ -351,7 +401,7 @@
 
   /* ---------- 操作列（自己回合的按鈕） ---------- */
   #actions{
-    position:absolute;bottom:calc(min(10vw,64px) + 92px);left:50%;transform:translateX(-50%);
+    position:absolute;bottom:calc(min(10vw,64px) + 56px);left:50%;transform:translateX(-50%);
     display:flex;gap:8px;z-index:20;flex-wrap:wrap;justify-content:center;max-width:96vw;
   }
   .act-btn{
@@ -2003,7 +2053,8 @@ function render(){
   if(!G){ return; }
   // 圈/莊/牌牆
   $('cRoundWind').textContent = WIND_ZH[G.roundWind];
-  $('cDealer').textContent = '莊家：'+G.players[G.dealer].name+(G.bankerStreak>0?'（連'+G.bankerStreak+'）':'');
+  $('cDealer').innerHTML = '<span class="d-line">莊家：'+escapeHtml(G.players[G.dealer].name)+'</span>'+
+    (G.bankerStreak>0? '<span class="d-line">（連'+G.bankerStreak+'）</span>' : '');
   $('cWall').textContent = G.wallCount;
   const rno=G.roundNo||1, rtot=G.totalRounds||totalRounds;
   const roundLabel = rtot>=999 ? '' : ('　<span style="color:var(--muted);font-size:12px">第'+rno+'/'+rtot+'局</span>');
@@ -2037,14 +2088,18 @@ function renderWideOpp(){
   order.forEach(seat=>{
     const p=G.players[seat];
     const active=(G.turn===seat && G.phase==='playing');
+    const meldCount=(p.melds||[]).length;
     const el=document.createElement('div');
-    el.className='opp'+(active?' active':'');
+    el.className='opp'+(active?' active':'')+(meldCount?' has-melds':'');
     el.innerHTML=
       '<span class="wind-badge">'+WIND_ZH[p.wind]+'</span>'+
       '<span class="nm">'+escapeHtml(p.name)+'</span>'+
       (seat===G.dealer?'<span class="bk">莊</span>':'')+
       '<span class="cnt">'+p.hand.length+'張</span>'+
+      (meldCount?'<span class="ml">🀄'+meldCount+'</span>':'')+
       '<span class="sc">'+(p.score>=0?'+':'')+p.score+'</span>';
+    el.style.cursor='pointer';
+    el.onclick=()=>showOppMelds(seat);   // 點擊查看副露
     bar.appendChild(el);
   });
   // 中央最近打出的牌
@@ -2059,6 +2114,40 @@ function renderWideOpp(){
       if(lbl) lbl.textContent='';
     }
   }
+}
+
+/* 顯示對手副露(吃碰槓)詳情:點擊對手條後彈出 */
+function showOppMelds(seat){
+  const p=G.players[seat]; if(!p) return;
+  let pop=$('oppMeldPopup');
+  if(!pop){
+    pop=document.createElement('div'); pop.id='oppMeldPopup';
+    pop.onclick=(e)=>{ if(e.target===pop) pop.style.display='none'; };
+    $('table').appendChild(pop);
+  }
+  const melds=p.melds||[];
+  let html='<div class="omp-card"><div class="omp-title">'+escapeHtml(p.name)+' 的副露</div>';
+  if(melds.length===0){
+    html+='<div class="omp-empty">尚未有吃碰槓</div>';
+  }else{
+    html+='<div class="omp-list">';
+    melds.forEach(m=>{
+      const typeLabel = m.type==='chi'?'吃':m.type==='pong'?'碰':m.type==='ankong'?'暗槓':m.type==='addkong'?'加槓':'槓';
+      html+='<div class="omp-meld"><span class="omp-type">'+typeLabel+'</span><span class="omp-tiles"></span></div>';
+    });
+    html+='</div>';
+  }
+  html+='<button class="omp-close">關閉</button></div>';
+  pop.innerHTML=html;
+  // 動態插入牌(用tileEl避免HTML注入)
+  const meldRows=pop.querySelectorAll('.omp-meld .omp-tiles');
+  melds.forEach((m,i)=>{
+    const row=meldRows[i]; if(!row) return;
+    const tiles = m.type==='ankong' ? [null,null,null,null] : m.tiles;
+    tiles.forEach(t=> row.appendChild(t? tileEl(t) : tileEl(null,{back:true})));
+  });
+  pop.querySelector('.omp-close').onclick=()=>{ pop.style.display='none'; };
+  pop.style.display='flex';
 }
 
 /* 偵測「剛輪到我出牌 / 我需要回應」→ 觸發明顯提醒（橫幅+光暈+震動+語音） */
