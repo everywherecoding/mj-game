@@ -295,6 +295,31 @@
   }
   #toast.show{opacity:1;}
 
+  /* 輪到自己：全螢幕邊框光暈 */
+  #turnGlow{
+    position:absolute;inset:0;pointer-events:none;z-index:40;opacity:0;
+    box-shadow:inset 0 0 0 4px var(--gold), inset 0 0 40px rgba(232,196,104,.5);
+    transition:opacity .3s;
+  }
+  #turnGlow.show{opacity:1;animation:turnPulse 1.5s ease-in-out infinite;}
+  @keyframes turnPulse{50%{box-shadow:inset 0 0 0 6px var(--gold), inset 0 0 70px rgba(232,196,104,.75);}}
+  /* 換你了 橫幅 */
+  #turnBanner{
+    position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) scale(.6);
+    z-index:45;pointer-events:none;opacity:0;
+    font-family:'Noto Serif TC',serif;font-weight:900;font-size:min(13vw,68px);
+    color:var(--gold);text-shadow:0 4px 20px rgba(0,0,0,.8),0 0 30px rgba(232,196,104,.6);
+    white-space:nowrap;
+  }
+  #turnBanner.show{animation:turnBannerPop 1.6s ease-out forwards;}
+  @keyframes turnBannerPop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}
+    15%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
+    30%{transform:translate(-50%,-50%) scale(1);}
+    75%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1);}
+  }
+
   /* 連線狀態燈 */
   #conn{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
   #conn .dot{width:8px;height:8px;border-radius:50%;background:#888;}
@@ -341,6 +366,14 @@
   .seat-card.taken{opacity:.55;cursor:not-allowed;background:#241a12;}
   .seat-card.taken:hover{border-color:var(--panel-line);}
   .seat-card.offline{opacity:.8;}
+  /* 電腦代打按鈕 */
+  .sc-ai-btn{
+    font-family:inherit;font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;
+    background:#1f3a2c;color:#6fd8a0;border:1px solid #2e6e4d;white-space:nowrap;margin-left:6px;
+  }
+  .sc-ai-btn:active{transform:translateY(1px);}
+  .sc-state.ai{color:#6fd8a0;}
+  .sc-right{display:flex;align-items:center;}
   .sc-pos{font-weight:700;color:var(--text);font-size:14px;display:flex;flex-direction:column;line-height:1.2;}
   .sc-pos small{font-size:10px;color:var(--muted);font-weight:400;}
   .sc-state{font-size:12px;color:var(--muted);text-align:right;}
@@ -415,6 +448,7 @@
   <span class="roundinfo" id="roundInfo">—</span>
   <div class="spacer"></div>
   <div id="conn"><span class="dot" id="connDot"></span><span id="connText">未連線</span></div>
+  <button class="ghost" id="btnMute">🔊 語音</button>
   <button class="ghost" id="btnSetup">座位</button>
   <button id="btnNew">新局</button>
 </div>
@@ -451,6 +485,10 @@
   <!-- 提示 -->
   <div id="toast"></div>
 
+  <!-- 輪到自己：全螢幕邊框光暈 + 橫幅 -->
+  <div id="turnGlow"></div>
+  <div id="turnBanner">換你了</div>
+
   <!-- 結算 -->
   <div id="result"><div class="card" id="resultCard"></div></div>
 
@@ -466,6 +504,16 @@
       <div class="field">
         <label>你的姓名（最多 6 字）</label>
         <input id="inpName" maxlength="6" placeholder="輸入姓名">
+      </div>
+      <div class="field">
+        <label>總局數（打完統計輸贏）</label>
+        <select id="selRounds">
+          <option value="1">1 局（單局）</option>
+          <option value="4" selected>4 局（一圈）</option>
+          <option value="8">8 局（兩圈）</option>
+          <option value="16">16 局（四圈）</option>
+          <option value="999">不限（手動結束）</option>
+        </select>
       </div>
       <div class="field">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -879,7 +927,7 @@
     if (t[0] === 'm') return t[1] + '萬';
     if (t[0] === 'p') return t[1] + '筒';
     if (t[0] === 's') return t[1] + '條';
-    const map = { z1: '東', z2: '南', z3: '西', z4: '北', z5: '中', z6: '發', z7: '白' };
+    const map = { z1: '東', z2: '南', z3: '西', z4: '北', z5: '中', z6: '發', z7: '白板' };
     return map[t] || t;
   }
 
@@ -963,6 +1011,7 @@ const clientId = 'c_' + Math.random().toString(36).slice(2,9);
 let ROOM = 'mj001';
 let mySeat = -1;          // 0..3，我控制的座位
 let myName = '';
+let totalRounds = 4;      // 總局數設定（預設4局），可在設定面板調整
 
 /* ---------------- 遊戲狀態（同步到雲端） ----------------
    G = {
@@ -992,12 +1041,14 @@ const OFFLINE_MS = 20000;       // 20 秒無心跳視為離線
 function seatOccupied(s){
   const o = seats[s];
   if(!o || !o.clientId) return false;
+  if(o.isAI) return true;                          // AI 座位永遠視為佔用中
   if(o.clientId === clientId) return false;       // 自己不算佔用
   if(Date.now() - (o.ts||0) > OFFLINE_MS) return false; // 離線者不算佔用
   return true;
 }
 function seatOffline(s){
   const o = seats[s];
+  if(o && o.isAI) return false;                   // AI 不會離線
   return o && o.clientId && o.clientId!==clientId && (Date.now()-(o.ts||0) > OFFLINE_MS);
 }
 
@@ -1005,9 +1056,16 @@ function seatOffline(s){
 function toast(msg,ms){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'), ms||1600); }
 
+let muted = false;   // 語音靜音開關
 function speak(text){
-  try{ if(!window.speechSynthesis) return; const u=new SpeechSynthesisUtterance(text);
-    u.lang='zh-TW'; u.rate=1.05; speechSynthesis.speak(u);}catch(e){}
+  try{
+    if(muted) return;                      // 靜音時不播報
+    if(!window.speechSynthesis) return;
+    speechSynthesis.cancel();              // 切斷上一句還沒念完的，避免播報排隊延遲
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='zh-TW'; u.rate=1.05;
+    speechSynthesis.speak(u);
+  }catch(e){}
 }
 
 /* ---------------- 牌面圖案：SVG ----------------
@@ -1034,7 +1092,7 @@ const BAMBOO_LAYOUTS = {
   3: [[50,34],[50,70],[50,106]],            // 直排3（真實3條為直排）
   4: [[34,42],[66,42],[34,98],[66,98]],
   5: [[34,40],[66,40],[50,70],[34,100],[66,100]],
-  6: [[34,42],[66,42],[34,70],[66,70],[34,98],[66,98]],
+  6: [[30,38],[70,38],[30,70],[70,70],[30,102],[70,102]],
   7: [[50,30],[34,64],[50,64],[66,64],[34,104],[50,104],[66,104]], // 上1 中3 下3
   8: [[34,32],[66,32],[34,60],[66,60],[34,88],[66,88],[34,116],[66,116]],
   9: [[30,34],[50,34],[70,34],[30,70],[50,70],[70,70],[30,106],[50,106],[70,106]],
@@ -1126,7 +1184,7 @@ function buildBambooSVG(n){
   const layout=BAMBOO_LAYOUTS[n];
   const greens=['#0f7a52','#c0392b','#1f5a8c'];
   let body='';
-  const h = n<=3?40: n<=6?34: 28;
+  const h = (n===3)?28: n<=3?40: (n===6?26: n<=6?34: 28);
   layout.forEach((p,i)=>{
     const col = (n>=7)?greens[i%3]:(i%2===0?'#0f7a52':'#c0392b');
     body+=bambooStick(p[0], p[1]-h/2, h, col);
@@ -1189,13 +1247,13 @@ function newGame(keepDealer){
 
   const prev = G;
   let dealer = 0, roundWind = 'z1', bankerStreak = 0;
-  const scores = [0,0,0,0];
+  const scores = [0,0,0,0];   // 新局預設分數歸零
   if(prev && keepDealer){
+    // 僅「同一盤內續局」(流局續莊等)才沿用莊位與累積分數
     dealer = prev.dealer; roundWind = prev.roundWind; bankerStreak = prev.bankerStreak;
     for(let i=0;i<4;i++) scores[i]=prev.players[i].score;
-  } else if(prev){
-    for(let i=0;i<4;i++) scores[i]=prev.players[i].score;
   }
+  // 否則(按「新局」開全新一盤)：分數歸零、座位0起莊、東圈
 
   // 發牌：每家16張，莊家17張
   const players = [];
@@ -1220,6 +1278,8 @@ function newGame(keepDealer){
   G = {
     phase:'playing',
     roundWind, dealer, bankerStreak,
+    roundNo: 1,                          // 全新一局從第1局開始
+    totalRounds: totalRounds,            // 總局數設定
     turn: dealer,
     turnState: 'discard',     // 莊家先打
     players,
@@ -1361,19 +1421,23 @@ function nextTurnDraw(fromSeat){
    由「打牌者」端或任一端做仲裁——這裡採：每端在收到完整 responses 後仲裁，
    為避免重複，只有「打牌者座位的客戶端」執行仲裁與後續寫入。 */
 function submitResponse(seat, action, payload){
-  if(!G.pending) return;
+  if(!G || !G.pending) return;
   G.pending.responses[seat] = {action, payload:payload||null, ts:Date.now()};
   pushG();
+  // 回應後本端也立即嘗試仲裁一次（若本端剛好是仲裁者就能馬上推進，不必等事件/輪詢）
+  setTimeout(()=>{ try{ tryResolvePending(); }catch(e){ console.error('仲裁出錯',e); } }, 60);
 }
 
-/* 仲裁：當所有 responder 都已回應（或有人胡/碰槓搶先） */
+/* 仲裁：當所有 responder 都已回應（或有人胡/碰槓搶先）。
+   統一由「AI 主控」（在座真人中座位最小者）負責，確保只有一端仲裁、不打架，
+   且主控必為在線真人，計時器與資料同步都活著，不會像「打牌者仲裁」那樣依賴
+   某個可能分心/離線的特定玩家而卡住。 */
 function tryResolvePending(){
   if(!G || !G.pending) return;
-  // 只有打牌者端負責仲裁，避免四端同時寫
-  if(mySeat !== G.pending.from) return;
+  if(!amAIController()) return;        // 只有主控仲裁
   const pend = G.pending;
-  const allIn = pend.responders.every(r => pend.responses[r.seat]);
-  // 若有人選胡，立即可結算（胡優先，多家胡取一家：以座位順序近打牌者者優先=一炮多響簡化為單響）
+
+  // 有人選胡 → 立即結算（胡優先於碰吃，多家取近打牌者者，一炮多響簡化為單響）
   const winSeat = pend.responders
     .map(r=>r.seat)
     .filter(s=>pend.responses[s] && pend.responses[s].action==='win')
@@ -1382,7 +1446,25 @@ function tryResolvePending(){
     settleWin(winSeat, pend.tile, false);
     return;
   }
-  if(!allIn) return; // 還沒收齊，等
+
+  const allIn = pend.responders.every(r => pend.responses[r.seat]);
+  if(!allIn){
+    // 還沒全部回應。若「還沒回應的人裡有真人」，一律等待（給人類充足時間按碰/吃/胡），
+    // 不可因 AI 已 pass 就推進，否則會搶掉玩家的碰。
+    const humanPending = pend.responders.some(r=>
+      !pend.responses[r.seat] && !seatIsAI(r.seat));
+    if(humanPending){
+      // 反應視窗保護：人類最多等 15 秒，逾時才視為放棄(避免有人離線永遠卡住)
+      if(!pend._ts) pend._ts = Date.now();
+      if(Date.now() - pend._ts < 15000) return;   // 還在反應時間內 → 等
+      // 逾時：把未回應的真人視為 pass
+      pend.responders.forEach(r=>{
+        if(!pend.responses[r.seat]) pend.responses[r.seat]={action:'pass',ts:Date.now()};
+      });
+    }else{
+      return; // 還沒回應的都是 AI → 等 AI 回應(由 aiDriver 處理)
+    }
+  }
 
   // 碰/槓 優先於 吃
   const pg = pend.responders.map(r=>r.seat)
@@ -1476,6 +1558,13 @@ function removeN(arr, t, n){ for(let k=0;k<n;k++){const i=arr.indexOf(t); if(i>=
 
 /* ---------------- 結算 ---------------- */
 function settleWin(seat, winTile, selfDraw){
+  // 防重入：已結束就不再結算，避免輪詢/事件重複呼叫把分數灌爆
+  if(!G || G.phase==='over' || G.winner!=null) return;
+  // 先鎖定狀態，再算分（避免算分過程中又被觸發）
+  G.phase='over';
+  G.winner=seat;
+  G.pending=null;            // 清掉待回應，否則仲裁會再次觸發結算
+
   const p=G.players[seat];
   // 組成 ctx
   const handForScore = selfDraw ? p.hand.slice() : MJ.sortTiles(p.hand.concat([winTile]));
@@ -1497,13 +1586,13 @@ function settleWin(seat, winTile, selfDraw){
   const taiTotal = score.total;
   const payEach = BASE + taiTotal;
 
-  // 結算分數：自摸三家付，食胡放槍者付（簡化：放槍付2倍? 這裡採各付payEach，自摸×3、食胡放槍者付×1並含底）
+  // 結算分數：自摸三家付，食胡放槍者付
   const players=G.players;
   if(selfDraw){
     for(let s=0;s<4;s++) if(s!==seat){ players[s].score -= payEach; players[seat].score += payEach; }
   }else{
-    const loser=G.lastDiscard.seat;
-    players[loser].score -= payEach; players[seat].score += payEach;
+    const loser = G.lastDiscard ? G.lastDiscard.seat : seat;
+    if(loser!==seat){ players[loser].score -= payEach; players[seat].score += payEach; }
   }
 
   // 連莊判斷
@@ -1517,13 +1606,11 @@ function settleWin(seat, winTile, selfDraw){
     }
   }
 
-  G.phase='over';
-  G.winner=seat;
   G.result={
     seat, selfDraw, winTile, taiTotal, payEach,
     items: score.items,
     hand: handForScore, melds: p.melds,
-    loser: selfDraw? null : G.lastDiscard.seat,
+    loser: selfDraw? null : (G.lastDiscard? G.lastDiscard.seat : null),
     nextDealer:newDealer, nextStreak:newStreak, nextRound:newRound,
   };
   G._afterKong=false;
@@ -1536,15 +1623,26 @@ function settleWin(seat, winTile, selfDraw){
 function nextRound(){
   if(!G||!G.result) { newGame(false); return; }
   const r=G.result;
-  if(r.draw){ // 流局：莊家續莊
+  const curNo = G.roundNo||1;
+  const total = G.totalRounds||totalRounds;
+  if(r.draw){ // 流局：莊家續莊，不算新的一局（局數不變）
     seatNames=G.players.map(p=>p.name);
-    const keep={dealer:G.dealer,roundWind:G.roundWind,bankerStreak:G.bankerStreak+1,
-      scores:G.players.map(p=>p.score)};
-    newGameWith(keep); return;
+    newGameWith({dealer:G.dealer,roundWind:G.roundWind,bankerStreak:G.bankerStreak+1,
+      scores:G.players.map(p=>p.score), roundNo:curNo, totalRounds:total});
+    return;
   }
+  // 有人胡 → 這一局結束。檢查是否已達總局數
   seatNames=G.players.map(p=>p.name);
+  if(curNo >= total){
+    // 全部局數打完 → 進入最終總結算
+    G.phase='finished';
+    G.finalScores = G.players.map(p=>({name:p.name, score:p.score}));
+    pushG();
+    speak('全部'+total+'局結束');
+    return;
+  }
   newGameWith({dealer:r.nextDealer,roundWind:r.nextRound,bankerStreak:r.nextStreak,
-    scores:G.players.map(p=>p.score)});
+    scores:G.players.map(p=>p.score), roundNo:curNo+1, totalRounds:total});
 }
 function newGameWith(keep){
   const seed=(Date.now()^(Math.random()*1e9))>>>0;
@@ -1559,12 +1657,174 @@ function newGameWith(keep){
   }
   const dd=deck[pos++];players[keep.dealer].hand=MJ.sortTiles(players[keep.dealer].hand.concat([dd]));
   G={phase:'playing',roundWind:keep.roundWind,dealer:keep.dealer,bankerStreak:keep.bankerStreak,
+    roundNo:(keep.roundNo||1), totalRounds:(keep.totalRounds||totalRounds),
     turn:keep.dealer,turnState:'discard',players,lastDiscard:null,pending:null,justDrawn:dd,
     deck,deckPos:pos,wallCount:deck.length-pos,
     log:WIND_ZH[keep.roundWind]+'圈・'+players[keep.dealer].name+' 坐莊',
     winner:null,result:null,seed,ts:Date.now()};
   pushG();
   speak(players[keep.dealer].name+'坐莊');
+}
+
+/* ===================================================================
+   電腦 AI
+   - seats[s].isAI === true 代表該座位是電腦
+   - 由「真人中座位編號最小者」當主控，在輪到 AI 時自動代為決策並寫雲端
+   - 決策：進階傻瓜版（會打孤張、能碰能胡、會挑最接近聽牌的牌打）
+   =================================================================== */
+
+function seatIsAI(s){ return !!(seats[s] && seats[s].isAI); }
+
+/* 我是不是 AI 主控？
+   原則：所有「在座的真人」中座位編號最小者當主控，負責驅動所有 AI。
+   容錯：若 seats 尚未同步、或找不到其他真人，只要我自己在座(mySeat>=0)就兜底當主控，
+   避免「沒人驅動 AI」造成卡住。 */
+function amAIController(){
+  if(mySeat<0) return false;
+  // 找出所有在座真人的座位（非AI、有 clientId）
+  const humans=[];
+  for(let s=0;s<4;s++){
+    const o=seats[s];
+    if(o && o.clientId && !o.isAI) humans.push(s);
+  }
+  if(humans.length===0) return true;        // seats 還沒同步到我 → 自己兜底
+  return humans[0]===mySeat;                 // 編號最小的真人當主控
+}
+
+const AI_DELAY = 900;
+let aiActingUntil = 0;   // AI 正在行動的「鎖定到期時間」，到期自動解鎖避免永久卡住
+
+/* AI 主控驅動：每次狀態更新後、以及輪詢計時器，都會呼叫這裡檢查是否該幫某 AI 行動。
+   採「軟鎖 + 到期自動解除」：避免事件鏈斷掉後 AI 永久卡住。 */
+function aiDriver(){
+  if(!G || G.phase!=='playing') return;
+  if(!amAIController()) return;          // 只有主控執行，避免多端重複
+  if(Date.now() < aiActingUntil) return; // 仍在上一個 AI 動作的等待中
+
+  // 找出「現在該由哪個 AI 做什麼」
+  // 1) 有待回應(pending) 且某 AI 還沒回應 → 幫它回應
+  if(G.pending){
+    const pend=G.pending;
+    const aiToRespond = pend.responders.map(r=>r.seat)
+      .find(s=> seatIsAI(s) && !pend.responses[s]);
+    if(aiToRespond!==undefined){
+      aiActingUntil = Date.now() + AI_DELAY + 1500;
+      setTimeout(()=>{
+        aiActingUntil = 0;
+        try{ if(G && G.pending && !G.pending.responses[aiToRespond]) aiRespond(aiToRespond); }
+        catch(e){ console.error('AI回應出錯',e); }
+        try{ tryResolvePending(); }catch(e){ console.error('仲裁出錯',e); }  // 回應後立即仲裁
+        aiDriver();
+      }, AI_DELAY);
+      return;
+    }
+    // pending 存在但 AI 都回應完了 → 直接嘗試仲裁(避免卡在等仲裁)
+    try{ tryResolvePending(); }catch(e){ console.error('仲裁出錯',e); }
+  }
+  // 2) 輪到某 AI 摸牌
+  if(seatIsAI(G.turn) && G.turnState==='draw'){
+    const seat=G.turn;
+    aiActingUntil = Date.now() + AI_DELAY + 1500;
+    setTimeout(()=>{
+      aiActingUntil = 0;
+      try{ if(G && seatIsAI(G.turn) && G.turn===seat && G.turnState==='draw') drawTile(seat); }
+      catch(e){ console.error('AI摸牌出錯',e); }
+      aiDriver();
+    }, AI_DELAY);
+    return;
+  }
+  // 3) 輪到某 AI 出牌
+  if(seatIsAI(G.turn) && G.turnState==='discard'){
+    const seat=G.turn;
+    aiActingUntil = Date.now() + AI_DELAY + 1500;
+    setTimeout(()=>{
+      aiActingUntil = 0;
+      try{ if(G && seatIsAI(G.turn) && G.turn===seat && G.turnState==='discard') aiDiscard(seat); }
+      catch(e){ console.error('AI出牌出錯',e); }
+      aiDriver();
+    }, AI_DELAY);
+    return;
+  }
+}
+
+/* 輪詢保險：定期檢查，即使事件鏈斷掉也能把卡住的 AI / 仲裁救回來 */
+function pollTick(){
+  try{ tryResolvePending(); }catch(e){ console.error('仲裁出錯',e); }
+  try{ aiDriver(); }catch(e){ console.error('AI驅動出錯',e); }
+}
+setInterval(pollTick, 800);
+// 分頁回到前景 / 手機螢幕重新亮起 → 計時器可能被瀏覽器凍結過，立即補一次驅動
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ aiActingUntil=0; pollTick(); } });
+window.addEventListener('focus', ()=>{ aiActingUntil=0; pollTick(); });
+
+/* AI 出牌決策 */
+function aiDiscard(seat){
+  const p=G.players[seat];
+  if(G.justDrawn && MJ.isWinningHand(p.hand, p.melds.length)){
+    settleWin(seat, G.justDrawn, true); return;   // 自摸胡
+  }
+  const ak=MJ.getConcealedKongs(p.hand);
+  if(ak.length){ declareAnkong(seat, ak[0]); return; }  // 有暗槓就槓
+  const tile = aiChooseDiscard(p.hand, p.melds.length);
+  discardTile(seat, tile);
+}
+
+/* 選最佳棄牌：丟掉後若聽牌優先，否則挑讓手牌啟發式分數最高的丟 */
+function aiChooseDiscard(hand, meldCount){
+  const uniq=[...new Set(hand)];
+  let bestTile=null, bestScore=-1e9;
+  for(const t of uniq){
+    const rest=hand.slice(); rest.splice(rest.indexOf(t),1);
+    const waits=MJ.getWaits(rest, meldCount);
+    const score = waits.length>0 ? (1000 + waits.length*10) : aiHandValue(rest);
+    if(score>bestScore){ bestScore=score; bestTile=t; }
+  }
+  return bestTile!=null? bestTile : hand[hand.length-1];
+}
+
+/* 手牌啟發式評分：搭子越多越好，孤張(尤其字牌、邊張)扣分 */
+function aiHandValue(hand){
+  const c=MJ.toCounts(hand);
+  let score=0;
+  for(const t in c){
+    const n=c[t];
+    if(n>=3) score+=12; else if(n===2) score+=6;
+    if(MJ.isSuited(t)){
+      const s=t[0], num=MJ.tileNum(t);
+      if(c[s+(num+1)]) score+=4;
+      if(c[s+(num+2)]) score+=2;
+    }
+  }
+  for(const t in c){
+    if(c[t]===1){
+      if(MJ.isHonor(t)) score-=3;
+      else{
+        const s=t[0], num=MJ.tileNum(t);
+        const nb = c[s+(num-1)]||c[s+(num+1)]||c[s+(num-2)]||c[s+(num+2)];
+        if(!nb) score-=2;
+        if(num===1||num===9) score-=0.5;
+      }
+    }
+  }
+  return score;
+}
+
+/* AI 回應吃碰槓胡：胡必應，碰/槓視情況，吃保守 */
+function aiRespond(seat){
+  if(!G.pending) return;
+  const me=G.pending.responders.find(r=>r.seat===seat);
+  if(!me) return;
+  const can=me.can;
+  if(can.win){ submitResponse(seat,'win'); return; }
+  if(can.pong){
+    const tile=G.pending.tile;
+    const p=G.players[seat];
+    if(MJ.isHonor(tile) || p.melds.length>0){ submitResponse(seat,'pong'); return; }
+    // 否則保守不碰(避免破壞順子手)
+  }
+  if(can.kong){ submitResponse(seat,'kong'); return; }
+  // 吃:保守不主動吃
+  submitResponse(seat,'pass');
 }
 
 /* ===================================================================
@@ -1576,7 +1836,9 @@ function render(){
   $('cRoundWind').textContent = WIND_ZH[G.roundWind];
   $('cDealer').textContent = '莊家：'+G.players[G.dealer].name+(G.bankerStreak>0?'（連'+G.bankerStreak+'）':'');
   $('cWall').textContent = G.wallCount;
-  $('roundInfo').innerHTML = WIND_ZH[G.roundWind]+'圈　<b>'+G.players[G.dealer].name+'</b> 莊';
+  const rno=G.roundNo||1, rtot=G.totalRounds||totalRounds;
+  const roundLabel = rtot>=999 ? '' : ('　<span style="color:var(--muted);font-size:12px">第'+rno+'/'+rtot+'局</span>');
+  $('roundInfo').innerHTML = WIND_ZH[G.roundWind]+'圈　<b>'+G.players[G.dealer].name+'</b> 莊'+roundLabel;
   $('cLastDiscard').textContent = G.lastDiscard ? ('打出 '+MJ.zhTile(G.lastDiscard.tile)) : '';
 
   // 座位對應：把「我的座位」放底部，其餘順時針 right/top/left
@@ -1592,6 +1854,39 @@ function render(){
   renderActions();
   renderRespond();
   renderResult();
+  checkMyTurnAlert();
+}
+
+/* 偵測「剛輪到我出牌 / 我需要回應」→ 觸發明顯提醒（橫幅+光暈+震動+語音） */
+let _wasMyTurn = false;
+function checkMyTurnAlert(){
+  if(mySeat<0 || !G || G.phase!=='playing'){ setTurnAlert(false); _wasMyTurn=false; return; }
+  // 「該我動作」= 輪到我摸/打，或 我在待回應名單且還沒回應
+  const myDiscardTurn = (G.turn===mySeat && (G.turnState==='draw'||G.turnState==='discard'));
+  const myRespond = !!(G.pending && G.pending.responders &&
+    toArr(G.pending.responders).some(r=>r && r.seat===mySeat) &&
+    !(G.pending.responses||{})[mySeat]);
+  const myTurn = myDiscardTurn || myRespond;
+  setTurnAlert(myTurn);
+  if(myTurn && !_wasMyTurn){
+    // 從「不是我」變成「是我」→ 觸發一次性提醒
+    fireTurnAlert(myRespond);
+  }
+  _wasMyTurn = myTurn;
+}
+function setTurnAlert(on){
+  const g=$('turnGlow'); if(g) g.classList.toggle('show', on);
+}
+function fireTurnAlert(isRespond){
+  const b=$('turnBanner');
+  if(b){
+    b.textContent = isRespond? '輪你決定' : '換你了';
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  }
+  // 手機震動
+  try{ if(navigator.vibrate) navigator.vibrate(isRespond?[80,60,80]:200); }catch(e){}
+  // 語音提醒（受靜音開關控制）
+  speak(isRespond? '輪你決定' : '換你了');
 }
 
 function renderSeat(container, seat, pos){
@@ -1718,8 +2013,12 @@ function renderRespond(){
   const box=$('respond');
   if(!G.pending || mySeat<0){ box.style.display='none'; return; }
   const pend=G.pending;
-  const me=pend.responders.find(r=>r.seat===mySeat);
-  if(!me || pend.responses[mySeat]){ box.style.display='none'; tryResolvePending(); return; }
+  // responders 可能被 Firebase 序列化成物件 → 還原成陣列
+  const responders = toArr(pend.responders);
+  const me=responders.find(r=>r && r.seat===mySeat);
+  const responses = pend.responses || {};
+  if(!me || responses[mySeat]){ box.style.display='none'; return; }
+  const can = me.can || {};
   box.style.display='flex';
   box.innerHTML='';
   const title=document.createElement('div'); title.className='rtitle';
@@ -1727,10 +2026,12 @@ function renderRespond(){
   box.appendChild(title);
   const tw=document.createElement('div'); tw.className='rtile'; tw.appendChild(tileEl(pend.tile)); box.appendChild(tw);
 
-  // 吃：列出組合
-  if(me.can.chi){
+  // 吃：列出組合（can.chi 可能被序列化變形，統一還原成陣列；每個組合也還原）
+  const chiOpts = can.chi ? toArr(can.chi).map(o=>toArr(o)) : [];
+  if(chiOpts.length){
     const wrap=document.createElement('div'); wrap.className='chi-opts';
-    me.can.chi.forEach(opt=>{
+    chiOpts.forEach(opt=>{
+      if(opt.length<2) return;
       const row=document.createElement('div'); row.className='chi-opt';
       MJ.sortTiles([pend.tile,opt[0],opt[1]]).forEach(t=>row.appendChild(tileEl(t)));
       row.onclick=()=>submitResponse(mySeat,'chi',opt);
@@ -1739,9 +2040,9 @@ function renderRespond(){
     box.appendChild(wrap);
   }
   const btns=document.createElement('div'); btns.className='rbtns';
-  if(me.can.win) addBtn(btns,'胡','win',()=>submitResponse(mySeat,'win'));
-  if(me.can.pong) addBtn(btns,'碰','primary',()=>submitResponse(mySeat,'pong'));
-  if(me.can.kong) addBtn(btns,'槓','',()=>submitResponse(mySeat,'kong'));
+  if(can.win) addBtn(btns,'胡','win',()=>submitResponse(mySeat,'win'));
+  if(can.pong) addBtn(btns,'碰','primary',()=>submitResponse(mySeat,'pong'));
+  if(can.kong) addBtn(btns,'槓','',()=>submitResponse(mySeat,'kong'));
   addBtn(btns,'過','pass',()=>submitResponse(mySeat,'pass'));
   box.appendChild(btns);
 }
@@ -1749,32 +2050,71 @@ function renderRespond(){
 /* 結算 */
 function renderResult(){
   const wrap=$('result');
+  // 最終總結算（打完所有局數）
+  if(G.phase==='finished'){
+    wrap.style.display='flex';
+    renderFinalResult();
+    return;
+  }
   if(G.phase!=='over'){ wrap.style.display='none'; return; }
   wrap.style.display='flex';
   const c=$('resultCard');
   const r=G.result;
+  const rno=G.roundNo||1, rtot=G.totalRounds||totalRounds;
+  const roundTag = rtot>=999? '' : '<div class="sub" style="color:var(--gold)">第 '+rno+' / '+rtot+' 局</div>';
+  const isLast = (rtot<999 && rno>=rtot && !(r&&r.draw));
+  const nextLabel = isLast? '看總結算' : '下一局';
   if(r&&r.draw){
-    c.innerHTML='<h2>流局</h2><div class="sub">牌牆已盡，無人胡牌</div>'+
-      '<button class="go" style="margin-top:10px" id="btnNext">下一局</button>';
+    c.innerHTML='<h2>流局</h2>'+roundTag+'<div class="sub">牌牆已盡，無人胡牌（莊家續莊）</div>'+
+      '<button class="go" style="margin-top:10px" id="btnNext">續局</button>';
   }else if(r){
     const p=G.players[r.seat];
     let taiHtml=r.items.map(it=>'<div class="tai-row"><span>'+it.name+'</span><b>'+it.tai+' 台</b></div>').join('');
     if(!taiHtml) taiHtml='<div class="tai-row"><span>無台（雞胡）</span><b>0 台</b></div>';
-    const handHtml=r.hand.map(t=>'').length; // placeholder
     c.innerHTML=
       '<h2>'+escapeHtml(p.name)+(r.selfDraw?' 自摸':' 胡牌')+'</h2>'+
+      roundTag+
       '<div class="sub">'+(r.selfDraw?'三家各付':(G.players[r.loser].name+' 放槍'))+'</div>'+
       '<div class="winhand" id="rHand"></div>'+
       '<div class="tai-list">'+taiHtml+'</div>'+
       '<div class="total">合計 <b>'+r.taiTotal+'</b> 台（每家付 '+r.payEach+'）</div>'+
-      '<button class="go" id="btnNext">下一局</button>';
-    // 渲染胡牌手牌
+      '<button class="go" id="btnNext">'+nextLabel+'</button>';
     const rh=$('rHand');
     r.hand.forEach(t=>rh.appendChild(tileEl(t)));
     r.melds.forEach(m=>{ const sep=document.createElement('div'); sep.style.width='8px'; rh.appendChild(sep);
       m.tiles.forEach(t=>rh.appendChild(tileEl(t))); });
   }
   const nb=$('btnNext'); if(nb) nb.onclick=()=>{ nextRound(); };
+}
+
+/* 最終總結算：每人總輸贏 */
+function renderFinalResult(){
+  const c=$('resultCard');
+  const scores = (G.finalScores && G.finalScores.length? G.finalScores : G.players.map(p=>({name:p.name,score:p.score})));
+  // 依分數高到低排序
+  const ranked = scores.map((s,i)=>({...s, seat:i})).sort((a,b)=>b.score-a.score);
+  const rtot=G.totalRounds||totalRounds;
+  let rows='';
+  ranked.forEach((s,idx)=>{
+    const medal = ['🥇','🥈','🥉','　'][idx]||'　';
+    const sign = s.score>0?'+':'';
+    const color = s.score>0?'#5fb98a': (s.score<0?'#e08a5a':'var(--muted)');
+    rows += '<div class="tai-row" style="font-size:16px;padding:8px 0">'+
+      '<span>'+medal+' '+escapeHtml(s.name)+'</span>'+
+      '<b style="color:'+color+'">'+sign+s.score+' 點</b></div>';
+  });
+  // 結算說明：正分=該收、負分=該付（一點對應你們約定的金額）
+  c.innerHTML=
+    '<h2 style="font-size:26px">🏆 全部結束</h2>'+
+    '<div class="sub">共 '+rtot+' 局・最終輸贏統計</div>'+
+    '<div class="tai-list" style="max-width:300px">'+rows+'</div>'+
+    '<div class="sub" style="margin:10px 0;line-height:1.6">正數=該收的點數<br>負數=該付的點數<br>（一點換算多少錢由你們自訂）</div>'+
+    '<button class="go" id="btnFinalNew">重新開始（歸零分數）</button>';
+  const b=$('btnFinalNew');
+  if(b) b.onclick=()=>{ // 歸零重來
+    if(G) G.players.forEach(p=>p.score=0);
+    newGame(false);
+  };
 }
 
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -1802,9 +2142,20 @@ function subscribe(){
       if(G.result===undefined) G.result=null;
       if(G.winner===undefined) G.winner=null;
       if(typeof G.wallCount!=='number') G.wallCount = G.deck.length - (G.deckPos||0);
+      if(G.finalScores) G.finalScores = toArr(G.finalScores);
+      // 還原 pending 結構：Firebase 會把陣列/物件序列化變形，這裡修回乾淨格式
+      if(G.pending){
+        G.pending.responders = toArr(G.pending.responders).map(r=>{
+          const can = r.can || {};
+          if(can.chi) can.chi = toArr(can.chi).map(o=>toArr(o));  // chi 還原成二維陣列
+          return { seat:r.seat, can };
+        });
+        G.pending.responses = G.pending.responses || {};
+      }
       render();
       maybeAutoFlow();
       tryResolvePending();
+      aiDriver();        // AI 主控檢查是否該幫電腦行動
     }
   });
   dbRef('mahjong/rooms/'+ROOM+'/names').on('value', snap=>{
@@ -1860,15 +2211,29 @@ function renderSeatList(){
   list.querySelectorAll('.seat-card').forEach(card=>{
     const s=parseInt(card.dataset.seat,10);
     const o=seats[s];
-    const stateEl=card.querySelector('.sc-state');
+    let stateEl=card.querySelector('.sc-state');
+    // 用一個右側容器包 狀態文字 + (可能的)電腦代打按鈕
+    let right=card.querySelector('.sc-right');
+    if(!right){
+      right=document.createElement('span'); right.className='sc-right';
+      stateEl.parentNode.insertBefore(right, stateEl);
+      right.appendChild(stateEl);
+    }
+    // 清掉舊的 AI 按鈕
+    const oldBtn=right.querySelector('.sc-ai-btn'); if(oldBtn) oldBtn.remove();
     card.classList.remove('taken','selected','offline');
-    if(o && o.clientId && o.clientId!==clientId && Date.now()-(o.ts||0)<=OFFLINE_MS){
-      // 別人佔用中
+
+    const isAI = o && o.isAI;
+    const occupiedByOther = o && o.clientId && !isAI && o.clientId!==clientId && Date.now()-(o.ts||0)<=OFFLINE_MS;
+
+    if(isAI){
+      stateEl.className='sc-state ai';
+      stateEl.innerHTML='🤖 <b>'+escapeHtml(o.name||'電腦')+'</b>';
+    }else if(occupiedByOther){
       card.classList.add('taken');
       stateEl.className='sc-state busy';
       stateEl.innerHTML='<b>'+escapeHtml(o.name||'玩家')+'</b>使用中';
     }else if(seatOffline(s)){
-      // 別人但已離線 → 可接手
       card.classList.add('offline');
       stateEl.className='sc-state off';
       stateEl.innerHTML='<b>'+escapeHtml(o.name||'玩家')+'</b>已離線・可接手';
@@ -1881,7 +2246,44 @@ function renderSeatList(){
       stateEl.textContent='空位';
       if(s===selectedSeat) card.classList.add('selected');
     }
+
+    // 空位或離線位 → 顯示「電腦代打」按鈕（讓真人可放電腦補位）
+    if(!isAI && !occupiedByOther && !(o && o.clientId===clientId)){
+      const b=document.createElement('button');
+      b.className='sc-ai-btn'; b.textContent='電腦代打';
+      b.onclick=(e)=>{ e.stopPropagation(); addAISeat(s); };
+      right.appendChild(b);
+    }
+    // AI 座位 → 顯示「移除」按鈕
+    if(isAI){
+      const b=document.createElement('button');
+      b.className='sc-ai-btn'; b.textContent='移除';
+      b.onclick=(e)=>{ e.stopPropagation(); removeAISeat(s); };
+      right.appendChild(b);
+    }
   });
+}
+
+/* 在某座位放一個電腦 AI */
+function addAISeat(s){
+  const room=$('inpRoom').value.trim()||'mj001';
+  ROOM=room; watchSeats(room);
+  const names=['小電','阿福','機器人','電腦腦'];
+  writeSeat(s, {clientId:'ai_'+s, name:names[s]||('電腦'+(s+1)), isAI:true, ts:Date.now()});
+  // 同步寫入名字節點
+  dbRef('mahjong/rooms/'+ROOM+'/names').once('value').then(snap=>{
+    const c=snap.val(); const arr=c?(Array.isArray(c)?c:Object.values(c)):['','','',''];
+    arr[s]=names[s]||('電腦'+(s+1)); while(arr.length<4)arr.push('');
+    dbRef('mahjong/rooms/'+ROOM+'/names').set(arr);
+  });
+  toast('已在座位'+(s+1)+'放置電腦');
+}
+
+/* 移除某座位的電腦 */
+function removeAISeat(s){
+  if(!seats[s] || !seats[s].isAI) return;
+  writeSeat(s, null);
+  toast('已移除座位'+(s+1)+'的電腦');
 }
 
 /* 點座位卡片 */
@@ -1896,6 +2298,8 @@ function enterSeat(){
   const seat=selectedSeat;
   const name=($('inpName').value.trim()||('玩家'+(seat+1))).slice(0,6);
   if(seat<0){ toast('請先點選座位'); return; }
+  // 讀取總局數設定
+  const rsel=$('selRounds'); if(rsel) totalRounds=parseInt(rsel.value,10)||4;
 
   ROOM=room;
   watchSeats(room);  // 確保監看此房間座位
@@ -1975,6 +2379,12 @@ $('btnNew').onclick=()=>{
   newGame(false);
 };
 $('btnLeaveAll').onclick=leaveAllSeats;
+$('btnMute').onclick=()=>{
+  muted=!muted;
+  $('btnMute').textContent = muted? '🔇 靜音' : '🔊 語音';
+  if(muted && window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+  toast(muted? '已關閉語音' : '已開啟語音');
+};
 $('btnRefreshSeats').onclick=()=>{ watchSeats($('inpRoom').value.trim()||'mj001'); renderSeatList(); toast('已重新整理'); };
 // 座位卡片點擊
 document.querySelectorAll('#seatList .seat-card').forEach(card=>{
@@ -1997,7 +2407,9 @@ if(!useCloud){ $('setupHint').textContent='目前為本機模式（未設定 Fir
 
 // 對外暴露（除錯）
 window.__MJ_GAME = { get G(){return G;}, get seats(){return seats;}, newGame, mySeat:()=>mySeat,
-  enterSeatProgrammatic:(s,n)=>{ selectedSeat=s; $('inpName').value=n; enterSeat(); } };
+  enterSeatProgrammatic:(s,n)=>{ selectedSeat=s; $('inpName').value=n; enterSeat(); },
+  addAI:(s)=>addAISeat(s), removeAI:(s)=>removeAISeat(s), amController:()=>amAIController(),
+  testDiscard:(seat,tile)=>{ G.turn=seat; G.turnState='discard'; discardTile(seat,tile); } };
 
 })();
 </script>
