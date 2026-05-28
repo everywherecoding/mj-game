@@ -149,6 +149,45 @@
   .nameplate .score{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums;}
   .nameplate .hcount{display:none;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
 
+  /* ===== 橫式寬敞版（手機橫放自動套用 body.wide）=====
+     只留自己手牌(放大)；對手收成頂部一條(名字+剩餘張數+輪到高亮)；
+     中央只顯示最近打出的那張牌。整個畫面讓給自己的牌。 */
+  #wideOppBar{display:none;}
+  #wideLast{display:none;}
+  body.wide #discardZone{ display:none; }                 /* 隱藏中央棄牌河與四方棄牌 */
+  body.wide .seat-top, body.wide .seat-left, body.wide .seat-right{ display:none; }  /* 隱藏三家原座位 */
+  /* 頂部對手條 */
+  body.wide #wideOppBar{
+    display:flex;position:absolute;top:6px;left:50%;transform:translateX(-50%);
+    gap:10px;z-index:15;width:max-content;max-width:96vw;
+  }
+  body.wide #wideOppBar .opp{
+    display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:10px;
+    background:rgba(20,15,10,.7);border:1px solid var(--panel-line);white-space:nowrap;
+  }
+  body.wide #wideOppBar .opp.active{
+    border-color:var(--gold);background:rgba(60,46,26,.85);box-shadow:0 0 12px rgba(232,196,104,.5);
+  }
+  body.wide #wideOppBar .opp .wind-badge{
+    width:20px;height:20px;border-radius:50%;background:var(--gold-deep);color:#2a1d05;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;
+  }
+  body.wide #wideOppBar .opp .nm{color:var(--text);font-size:13px;font-weight:700;max-width:70px;overflow:hidden;text-overflow:ellipsis;}
+  body.wide #wideOppBar .opp .cnt{color:var(--gold);font-size:13px;font-variant-numeric:tabular-nums;}
+  body.wide #wideOppBar .opp .bk{color:var(--red);font-size:11px;font-weight:900;}
+  body.wide #wideOppBar .opp .sc{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+  /* 中央最近打出的牌 */
+  body.wide #wideLast{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);z-index:10;
+  }
+  body.wide #wideLast .wl-label{color:var(--muted);font-size:13px;}
+  body.wide #wideLast .wl-tile .tile{ width:54px;height:76px;font-size:30px; }
+  /* 自己手牌放到最大、置底 */
+  body.wide .seat-bottom{ bottom:10px;width:98vw; }
+  body.wide .seat-bottom .hand{ --tw: min(58px, calc((98vw - 40px) / 17)); gap:3px; }
+  body.wide .seat-bottom .meld .tile{ width:32px;height:44px;font-size:18px; }
+
   /* ===== 精簡模式（手機直式自動開啟 / 可手動切換）=====
      隱藏對手的牌背手牌，只留名牌+剩餘張數+副露+中央棄牌河，放大自己手牌 */
   body.compact .seat-top .oppbacks,
@@ -512,7 +551,6 @@
   <span class="roundinfo" id="roundInfo">—</span>
   <div class="spacer"></div>
   <div id="conn"><span class="dot" id="connDot"></span><span id="connText">未連線</span></div>
-  <button class="ghost" id="btnCompact">🀫 精簡</button>
   <button class="ghost" id="btnMute">🔊 語音</button>
   <button class="ghost" id="btnSetup">座位</button>
   <button id="btnNew">新局</button>
@@ -540,6 +578,10 @@
   <div class="seat seat-top" id="seatTop"></div>
   <div class="seat seat-left" id="seatLeft"></div>
   <div class="seat seat-right" id="seatRight"></div>
+
+  <!-- 橫式寬敞版專用：頂部三家對手條 + 中央最近打出的牌（僅 body.wide 顯示） -->
+  <div id="wideOppBar"></div>
+  <div id="wideLast"><span class="wl-label"></span><span class="wl-tile" id="wideLastTile"></span></div>
 
   <!-- 操作列 -->
   <div id="actions"></div>
@@ -1916,10 +1958,45 @@ function render(){
   renderSeat($('seatLeft'),  order[3],'left');
 
   renderDiscards();
+  renderWideOpp();
   renderActions();
   renderRespond();
   renderResult();
   checkMyTurnAlert();
+}
+
+/* 橫式寬敞版：頂部三家對手條 + 中央最近打出的牌 */
+function renderWideOpp(){
+  const bar=$('wideOppBar'); if(!bar) return;
+  bar.innerHTML='';
+  if(mySeat<0){ return; }
+  // 依座位順序排出三家對手（下家、對家、上家）
+  const order=[(mySeat+1)%4,(mySeat+2)%4,(mySeat+3)%4];
+  order.forEach(seat=>{
+    const p=G.players[seat];
+    const active=(G.turn===seat && G.phase==='playing');
+    const el=document.createElement('div');
+    el.className='opp'+(active?' active':'');
+    el.innerHTML=
+      '<span class="wind-badge">'+WIND_ZH[p.wind]+'</span>'+
+      '<span class="nm">'+escapeHtml(p.name)+'</span>'+
+      (seat===G.dealer?'<span class="bk">莊</span>':'')+
+      '<span class="cnt">'+p.hand.length+'張</span>'+
+      '<span class="sc">'+(p.score>=0?'+':'')+p.score+'</span>';
+    bar.appendChild(el);
+  });
+  // 中央最近打出的牌
+  const wl=$('wideLast'), wt=$('wideLastTile'), lbl=wl?wl.querySelector('.wl-label'):null;
+  if(wt){
+    wt.innerHTML='';
+    if(G.lastDiscard){
+      const who=G.players[G.lastDiscard.seat];
+      if(lbl) lbl.textContent=who.name+' 打出';
+      wt.appendChild(tileEl(G.lastDiscard.tile));
+    }else{
+      if(lbl) lbl.textContent='';
+    }
+  }
 }
 
 /* 偵測「剛輪到我出牌 / 我需要回應」→ 觸發明顯提醒（橫幅+光暈+震動+語音） */
@@ -2458,11 +2535,6 @@ $('btnMute').onclick=()=>{
   if(muted && window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
   toast(muted? '已關閉語音' : '已開啟語音');
 };
-$('btnCompact').onclick=()=>{
-  const on = !document.body.classList.contains('compact');
-  setCompact(on, true);   // 手動切換，之後不被自動覆蓋
-  toast(on? '已切換精簡版面（只顯示自己與棄牌）' : '已切換完整版面');
-};
 $('btnRefreshSeats').onclick=()=>{ watchSeats($('inpRoom').value.trim()||'mj001'); renderSeatList(); toast('已重新整理'); };
 // 座位卡片點擊
 document.querySelectorAll('#seatList .seat-card').forEach(card=>{
@@ -2484,24 +2556,17 @@ renderSeatList();
    1) 設定 --vh 變數解決手機瀏覽器網址列伸縮造成的高度誤差
    2) 視窗大小/方向改變時，重繪牌桌(讓依賴尺寸的版面即時校正) */
 function applyViewport(){
-  // 1vh 的真實像素值（避免手機 100vh 包含網址列高度的問題）
   const vh = window.innerHeight * 0.01;
   document.documentElement.style.setProperty('--vh', vh+'px');
   const isPortrait = window.innerHeight > window.innerWidth;
-  const isNarrow = window.innerWidth <= 560;
+  const isLandscape = !isPortrait;
+  const isShortLandscape = isLandscape && window.innerHeight <= 560;  // 手機橫式(矮)
+  const isNarrowPortrait = isPortrait && window.innerWidth <= 560;    // 手機直式(窄)
   document.body.dataset.orient = isPortrait ? 'portrait' : 'landscape';
-  // 精簡模式：使用者沒手動指定時，手機直式自動開啟、其餘自動關閉
-  if(compactManual===null){
-    setCompact(isPortrait && isNarrow, false);
-  }
-}
-/* 精簡模式開關。manual=true 表示使用者手動設定(之後不再被自動覆蓋) */
-let compactManual = null;   // null=自動, true/false=使用者手動
-function setCompact(on, manual){
-  if(manual) compactManual = on;
-  document.body.classList.toggle('compact', on);
-  const b=$('btnCompact');
-  if(b) b.textContent = on? '🀅 完整' : '🀫 精簡';
+  // 純自動套用版面（無手動按鈕）：
+  //  手機直式 → compact(精簡)　手機橫式 → wide(寬敞)　其餘(平板/桌機) → 完整四方
+  document.body.classList.toggle('compact', isNarrowPortrait);
+  document.body.classList.toggle('wide', isShortLandscape);
 }
 applyViewport();
 let _resizeTimer=null;
