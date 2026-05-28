@@ -41,7 +41,7 @@
 
   /* ---------- 頂部列 ---------- */
   #topbar{
-    display:flex;align-items:center;gap:10px;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
     padding:8px 14px;
     background:linear-gradient(180deg,#241c14,#1a1410);
     border-bottom:2px solid var(--gold-deep);
@@ -147,6 +147,24 @@
   .nameplate .pname{font-weight:700;color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;}
   .nameplate .banker{color:var(--red);font-weight:900;font-size:12px;}
   .nameplate .score{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums;}
+  .nameplate .hcount{display:none;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;}
+
+  /* ===== 精簡模式（手機直式自動開啟 / 可手動切換）=====
+     隱藏對手的牌背手牌，只留名牌+剩餘張數+副露+中央棄牌河，放大自己手牌 */
+  body.compact .seat-top .oppbacks,
+  body.compact .seat-left .oppbacks,
+  body.compact .seat-right .oppbacks{ display:none; }      /* 隱藏對手牌背 */
+  body.compact .nameplate .hcount{ display:inline; }       /* 顯示對手剩餘張數 */
+  /* 三家對手往邊緣收，騰出中間給棄牌河與自己手牌 */
+  body.compact .seat-top{ top:4px; }
+  body.compact .seat-left{ left:2px; }
+  body.compact .seat-right{ right:2px; }
+  body.compact .seat-left .melds,
+  body.compact .seat-right .melds{ transform:scale(.82); }  /* 左右副露略縮 */
+  /* 中央棄牌河放大、自己手牌放大 */
+  body.compact #center{ width:min(34vmin,180px);height:min(34vmin,180px); }
+  body.compact .dz-discards .tile{ width:min(4.4vw,28px);height:min(6.2vw,40px); }
+  body.compact .seat-bottom .hand{ --tw: min(50px, calc((97vw - 50px) / 17)); }
 
   /* ---------- 麻將牌通用樣式 ---------- */
   .tile{
@@ -334,11 +352,16 @@
   #setup{
     position:absolute;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,.75);backdrop-filter:blur(4px);
+    padding:16px;overflow-y:auto;            /* 內容過高時整體可捲動 */
   }
   #setup .panel{
     background:linear-gradient(180deg,#241a10,#15100a);
     border:2px solid var(--gold-deep);border-radius:16px;padding:26px;
     width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.6);
+    max-height:calc(100dvh - 32px);          /* 不超過視窗高度 */
+    max-height:calc((var(--vh,1vh) * 100) - 32px);
+    overflow-y:auto;                          /* 面板內容可捲動 */
+    margin:auto;                              /* 配合捲動容器置中，過高時不切頭尾 */
   }
   #setup h2{font-family:'Noto Serif TC',serif;color:var(--gold);font-size:24px;margin-bottom:6px;text-align:center;}
   #setup p{color:var(--muted);font-size:13px;text-align:center;margin-bottom:18px;line-height:1.6;}
@@ -400,9 +423,31 @@
   .leave-all:active{transform:translateY(1px);}
 
   @media (max-width:560px){
-    #topbar .brand{font-size:15px;}
+    /* 頂部列：窄螢幕改為可換行、縮小非必要元素，確保「座位/新局」按鈕一定看得到 */
+    #topbar{flex-wrap:wrap;gap:6px;padding:6px 10px;row-gap:4px;}
+    #topbar .brand{font-size:14px;letter-spacing:1px;}
+    #topbar .roundinfo{font-size:11px;flex-basis:100%;order:5;}  /* 局數資訊獨立一行 */
+    #topbar .roundinfo b{font-size:12px;}
+    #conn #connText{display:none;}        /* 隱藏連線文字，只留狀態圓點 */
+    #conn .dot{width:10px;height:10px;}
+    #topbar select,#topbar input,#topbar button{font-size:12px;padding:5px 7px;}
+    #topbar #btnMute{padding:5px 6px;}        /* 語音鈕縮小 */
     #center{width:min(30vmin,160px);height:min(30vmin,160px);}
     .dz-discards .tile{width:min(3vw,20px);height:min(4.2vw,28px);}
+    /* 設定面板：手機上縮減留白與字體，盡量一屏放下 */
+    #setup{padding:10px;}
+    #setup .panel{padding:18px 16px;}
+    #setup h2{font-size:20px;}
+    #setup p{font-size:12px;margin-bottom:12px;}
+    #setup .field{margin-bottom:10px;}
+    #setup select,#setup input{font-size:14px;padding:8px;}
+    #setup .go{padding:11px;font-size:16px;margin-top:6px;}
+  }
+
+  /* 極窄螢幕（小手機）：標題縮小，其餘靠 flex-wrap 自動換行不會消失 */
+  @media (max-width:380px){
+    #topbar .brand{font-size:13px;letter-spacing:0;}
+    #topbar{gap:5px;}
   }
 
   /* 平板 / 中等螢幕：座位寬度收斂，避免過度拉開 */
@@ -467,6 +512,7 @@
   <span class="roundinfo" id="roundInfo">—</span>
   <div class="spacer"></div>
   <div id="conn"><span class="dot" id="connDot"></span><span id="connText">未連線</span></div>
+  <button class="ghost" id="btnCompact">🀫 精簡</button>
   <button class="ghost" id="btnMute">🔊 語音</button>
   <button class="ghost" id="btnSetup">座位</button>
   <button id="btnNew">新局</button>
@@ -1917,10 +1963,12 @@ function renderSeat(container, seat, pos){
   // 名牌
   const plate=document.createElement('div');
   plate.className='nameplate'+(isActive?' active':'');
+  const handCount = p.hand.length;
   plate.innerHTML =
     '<span class="wind-badge">'+WIND_ZH[p.wind]+'</span>'+
     '<span class="pname">'+escapeHtml(p.name)+'</span>'+
     (seat===G.dealer?'<span class="banker">莊</span>':'')+
+    (isMe?'':'<span class="hcount">'+handCount+'張</span>')+   /* 對手剩餘張數(精簡模式顯示) */
     '<span class="score">'+(p.score>=0?'+':'')+p.score+'</span>';
 
   // 副露
@@ -1935,7 +1983,7 @@ function renderSeat(container, seat, pos){
   }
 
   // 手牌
-  const hand=document.createElement('div'); hand.className='hand';
+  const hand=document.createElement('div'); hand.className='hand'+(isMe?' myhand':' oppbacks');
   if(isMe){
     p.hand.forEach(t=>{
       const cls = (t===G.justDrawn && G.justDrawn? 'justdrawn':'');
@@ -2410,6 +2458,11 @@ $('btnMute').onclick=()=>{
   if(muted && window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
   toast(muted? '已關閉語音' : '已開啟語音');
 };
+$('btnCompact').onclick=()=>{
+  const on = !document.body.classList.contains('compact');
+  setCompact(on, true);   // 手動切換，之後不被自動覆蓋
+  toast(on? '已切換精簡版面（只顯示自己與棄牌）' : '已切換完整版面');
+};
 $('btnRefreshSeats').onclick=()=>{ watchSeats($('inpRoom').value.trim()||'mj001'); renderSeatList(); toast('已重新整理'); };
 // 座位卡片點擊
 document.querySelectorAll('#seatList .seat-card').forEach(card=>{
@@ -2434,8 +2487,21 @@ function applyViewport(){
   // 1vh 的真實像素值（避免手機 100vh 包含網址列高度的問題）
   const vh = window.innerHeight * 0.01;
   document.documentElement.style.setProperty('--vh', vh+'px');
-  // 標記方向，供需要時用
-  document.body.dataset.orient = (window.innerWidth >= window.innerHeight) ? 'landscape' : 'portrait';
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const isNarrow = window.innerWidth <= 560;
+  document.body.dataset.orient = isPortrait ? 'portrait' : 'landscape';
+  // 精簡模式：使用者沒手動指定時，手機直式自動開啟、其餘自動關閉
+  if(compactManual===null){
+    setCompact(isPortrait && isNarrow, false);
+  }
+}
+/* 精簡模式開關。manual=true 表示使用者手動設定(之後不再被自動覆蓋) */
+let compactManual = null;   // null=自動, true/false=使用者手動
+function setCompact(on, manual){
+  if(manual) compactManual = on;
+  document.body.classList.toggle('compact', on);
+  const b=$('btnCompact');
+  if(b) b.textContent = on? '🀅 完整' : '🀫 精簡';
 }
 applyViewport();
 let _resizeTimer=null;
