@@ -28,6 +28,10 @@
   html,body{height:100%;overflow:hidden;}
   body{
     font-family:'Noto Sans TC',sans-serif;
+    /* 高度優先用動態視窗高度(手機網址列伸縮時自動校正)；舊瀏覽器退回 JS 設定的 --vh */
+    height:100vh;
+    height:calc(var(--vh, 1vh) * 100);
+    height:100dvh;
     background:
       radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 45%, var(--felt-dark) 100%);
     color:var(--text);
@@ -399,6 +403,21 @@
     #topbar .brand{font-size:15px;}
     #center{width:min(30vmin,160px);height:min(30vmin,160px);}
     .dz-discards .tile{width:min(3vw,20px);height:min(4.2vw,28px);}
+  }
+
+  /* 平板 / 中等螢幕：座位寬度收斂，避免過度拉開 */
+  @media (min-width:561px) and (max-width:1024px){
+    .seat-bottom{width:min(92vw,720px);}
+    .seat-top{width:min(72vw,560px);}
+    #center{width:min(24vmin,180px);height:min(24vmin,180px);}
+  }
+
+  /* 超寬螢幕（桌機）：限制牌桌最大寬度並置中，座位不會散太開 */
+  @media (min-width:1025px){
+    #table{max-width:1100px;margin:0 auto;width:100%;}
+    .seat-bottom{width:min(860px,90%);}
+    .seat-top{width:min(640px,70%);}
+    .seat-bottom .hand{ --tw: min(46px, calc((min(1100px,100vw) - 90px) / 17)); }
   }
 
   /* 手機橫放：寬>高 且 高度偏矮。垂直空間吃緊，壓縮各區避免溢出 */
@@ -2048,19 +2067,25 @@ function renderRespond(){
 }
 
 /* 結算 */
+let _resultKey = null;   // 記住目前結算畫面內容，避免頻繁 render 重建 DOM 洗掉按鈕
 function renderResult(){
   const wrap=$('result');
   // 最終總結算（打完所有局數）
   if(G.phase==='finished'){
     wrap.style.display='flex';
-    renderFinalResult();
+    if(_resultKey!=='finished'){ _resultKey='finished'; renderFinalResult(); }
     return;
   }
-  if(G.phase!=='over'){ wrap.style.display='none'; return; }
+  if(G.phase!=='over'){ wrap.style.display='none'; _resultKey=null; return; }
   wrap.style.display='flex';
   const c=$('resultCard');
   const r=G.result;
   const rno=G.roundNo||1, rtot=G.totalRounds||totalRounds;
+  // 用一個 key 代表目前結算內容；若沒變就不重建 DOM（否則每次 render 都重設 innerHTML
+  // 會把使用者正要點的「下一局/看總結算」按鈕換成新節點，導致點擊落空、看似沒反應）
+  const key = G.phase+'|'+(r? (r.draw?'draw':(r.seat+'_'+r.taiTotal+'_'+r.payEach)) :'none')+'|'+rno+'/'+rtot;
+  if(key===_resultKey) return;   // 內容沒變 → 不重建，保留現有按鈕與其事件
+  _resultKey = key;
   const roundTag = rtot>=999? '' : '<div class="sub" style="color:var(--gold)">第 '+rno+' / '+rtot+' 局</div>';
   const isLast = (rtot<999 && rno>=rtot && !(r&&r.draw));
   const nextLabel = isLast? '看總結算' : '下一局';
@@ -2401,6 +2426,29 @@ window.addEventListener('beforeunload',()=>{ if(mySeat>=0){ try{ dbRef('mahjong/
 setConn(false);
 watchSeats('mj001');
 renderSeatList();
+
+/* ---------------- RWD：偵測視窗大小動態調整 ----------------
+   1) 設定 --vh 變數解決手機瀏覽器網址列伸縮造成的高度誤差
+   2) 視窗大小/方向改變時，重繪牌桌(讓依賴尺寸的版面即時校正) */
+function applyViewport(){
+  // 1vh 的真實像素值（避免手機 100vh 包含網址列高度的問題）
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', vh+'px');
+  // 標記方向，供需要時用
+  document.body.dataset.orient = (window.innerWidth >= window.innerHeight) ? 'landscape' : 'portrait';
+}
+applyViewport();
+let _resizeTimer=null;
+window.addEventListener('resize', ()=>{
+  applyViewport();
+  // 防抖：尺寸穩定後重繪一次，確保牌張寬度等重新計算
+  clearTimeout(_resizeTimer);
+  _resizeTimer=setTimeout(()=>{ if(G) try{ render(); }catch(e){} }, 150);
+});
+window.addEventListener('orientationchange', ()=>{
+  setTimeout(()=>{ applyViewport(); if(G) try{ render(); }catch(e){} }, 200);
+});
+
 // 定期刷新座位卡片(讓離線判定的倒數即時更新)
 setInterval(()=>{ if($('setup').style.display!=='none') renderSeatList(); }, 3000);
 if(!useCloud){ $('setupHint').textContent='目前為本機模式（未設定 Firebase）：請在同一瀏覽器開 4 個分頁，房間代碼相同、各選不同座位即可連線測試。'; }
