@@ -232,11 +232,18 @@
   }
   #oppMeldPopup .omp-title{font-family:'Noto Serif TC',serif;font-size:18px;color:var(--gold);margin-bottom:12px;}
   #oppMeldPopup .omp-empty{color:var(--muted);font-size:14px;padding:14px 0;}
-  #oppMeldPopup .omp-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-  #oppMeldPopup .omp-meld{display:flex;align-items:center;gap:10px;padding:6px;background:rgba(0,0,0,.25);border-radius:6px;}
-  #oppMeldPopup .omp-type{color:var(--gold);font-size:13px;font-weight:700;min-width:36px;}
+  #oppMeldPopup .omp-list{
+    display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;
+    justify-content:center;margin-bottom:12px;max-width:88vw;
+  }
+  #oppMeldPopup .omp-meld{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:6px 8px;background:rgba(60,46,26,.55);
+    border:2px solid var(--gold-deep);border-radius:8px;
+  }
+  #oppMeldPopup .omp-type{color:var(--gold);font-size:12px;font-weight:700;}
   #oppMeldPopup .omp-tiles{display:flex;gap:2px;}
-  #oppMeldPopup .omp-tiles .tile{width:28px;height:40px;font-size:16px;}
+  #oppMeldPopup .omp-tiles .tile{width:22px;height:32px;font-size:13px;}
   #oppMeldPopup .omp-close{
     margin-top:4px;padding:8px 24px;border-radius:8px;border:1px solid var(--gold-deep);
     background:#241a10;color:var(--gold);font-family:inherit;cursor:pointer;
@@ -435,6 +442,10 @@
     background:rgba(0,0,0,.25);cursor:pointer;border:1px solid transparent;}
   #respond .chi-opt:hover{border-color:var(--gold);}
   #respond .chi-opt .tile{width:32px;height:44px;font-size:18px;}
+  /* 倒數計時:平常黃色,最後5秒變紅閃爍 */
+  #respond .rcountdown{font-size:12px;color:var(--gold);margin-top:4px;font-variant-numeric:tabular-nums;}
+  #respond .rcountdown.warn{color:#ff6b5a;animation:cdBlink .6s ease-in-out infinite;}
+  @keyframes cdBlink{50%{opacity:.45;}}
 
   /* ---------- 結算彈窗 ---------- */
   #result{
@@ -2096,7 +2107,7 @@ function renderWideOpp(){
       '<span class="nm">'+escapeHtml(p.name)+'</span>'+
       (seat===G.dealer?'<span class="bk">莊</span>':'')+
       '<span class="cnt">'+p.hand.length+'張</span>'+
-      (meldCount?'<span class="ml">🀄'+meldCount+'</span>':'')+
+      (meldCount?'<span class="ml">副露 '+meldCount+' 組</span>':'')+
       '<span class="sc">'+(p.score>=0?'+':'')+p.score+'</span>';
     el.style.cursor='pointer';
     el.onclick=()=>showOppMelds(seat);   // 點擊查看副露
@@ -2320,13 +2331,13 @@ function addBtn(box,label,cls,fn){
 /* 回應面板 */
 function renderRespond(){
   const box=$('respond');
-  if(!G.pending || mySeat<0){ box.style.display='none'; return; }
+  if(!G.pending || mySeat<0){ box.style.display='none'; stopRespondCountdown(); return; }
   const pend=G.pending;
   // responders 可能被 Firebase 序列化成物件 → 還原成陣列
   const responders = toArr(pend.responders);
   const me=responders.find(r=>r && r.seat===mySeat);
   const responses = pend.responses || {};
-  if(!me || responses[mySeat]){ box.style.display='none'; return; }
+  if(!me || responses[mySeat]){ box.style.display='none'; stopRespondCountdown(); return; }
   const can = me.can || {};
   box.style.display='flex';
   box.innerHTML='';
@@ -2354,7 +2365,29 @@ function renderRespond(){
   if(can.kong) addBtn(btns,'槓','',()=>submitResponse(mySeat,'kong'));
   addBtn(btns,'過','pass',()=>submitResponse(mySeat,'pass'));
   box.appendChild(btns);
+  // 倒數計時(15秒,逾時自動過)
+  const cd=document.createElement('div'); cd.className='rcountdown'; cd.id='respondCountdown';
+  box.appendChild(cd);
+  startRespondCountdown(pend._ts || Date.now());
 }
+
+/* 倒數計時:每0.1秒更新顯示剩餘秒數 */
+let _cdTimer=null;
+function startRespondCountdown(startTs){
+  stopRespondCountdown();
+  const TOTAL=15000;
+  const update=()=>{
+    const el=$('respondCountdown'); if(!el) return stopRespondCountdown();
+    const remain=Math.max(0, TOTAL - (Date.now() - startTs));
+    const sec=(remain/1000).toFixed(1);
+    el.textContent='剩 '+sec+' 秒（逾時自動過）';
+    el.classList.toggle('warn', remain<=5000);
+    if(remain<=0) stopRespondCountdown();
+  };
+  update();
+  _cdTimer=setInterval(update, 100);
+}
+function stopRespondCountdown(){ if(_cdTimer){ clearInterval(_cdTimer); _cdTimer=null; } }
 
 /* 結算 */
 let _resultKey = null;   // 記住目前結算畫面內容，避免頻繁 render 重建 DOM 洗掉按鈕
