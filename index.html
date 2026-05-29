@@ -158,12 +158,21 @@
      中央只顯示最近打出的那張牌。整個畫面讓給自己的牌。 */
   #wideOppBar{display:none;}
   #wideLast{display:none;}
+  #wideWall{display:none;}
   body.wide #discardZone{ display:none; }                 /* 隱藏中央棄牌河與四方棄牌 */
   body.wide .seat-top, body.wide .seat-left, body.wide .seat-right{ display:none; }  /* 隱藏三家原座位 */
+  /* 剩餘牌牆顯示(橫式時)放在左上角角落,不與中央打出的牌重疊 */
+  body.wide #wideWall{
+    display:block;position:absolute;top:8px;left:8px;right:auto;transform:none;
+    z-index:14;font-size:12px;color:var(--gold);
+    background:rgba(20,15,10,.7);padding:3px 10px;border-radius:8px;
+    border:1px solid var(--gold-deep);font-variant-numeric:tabular-nums;
+  }
   /* 頂部對手條 */
   body.wide #wideOppBar{
     display:flex;position:absolute;top:6px;left:50%;transform:translateX(-50%);
-    gap:10px;z-index:15;width:max-content;max-width:96vw;
+    gap:8px;z-index:15;justify-content:center;flex-wrap:wrap;
+    width:max-content;max-width:calc(100vw - 160px);   /* 左右各預留 80px 給牌牆等元素 */
   }
   body.wide #wideOppBar .opp{
     display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:10px;
@@ -183,25 +192,102 @@
   /* 中央最近打出的牌 */
   body.wide #wideLast{
     display:flex;flex-direction:row;align-items:center;gap:8px;
-    position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);z-index:10;
-    background:rgba(20,15,10,.6);padding:6px 14px;border-radius:12px;
+    position:absolute;top:calc(38% + 11px);left:50%;transform:translate(-50%,-50%);z-index:10;
+    background:rgba(20,15,10,.7);padding:6px 14px;border-radius:12px;
+    border:1px solid var(--gold-deep);
+    transition:top .35s ease, left .35s ease, transform .35s ease;
   }
   body.wide #wideLast .wl-label{color:var(--muted);font-size:13px;white-space:nowrap;}
   body.wide #wideLast .wl-tile .tile{ width:34px;height:48px;font-size:20px; }
-  /* 自己手牌置底（橫式螢幕矮，牌高度要控制避免頂到中央） */
-  body.wide .seat-bottom{ bottom:6px;width:94vw;left:50%;transform:translateX(-50%); }
-  body.wide .seat-bottom .hand{
-    --tw: min(40px, calc((90vw - 80px) / 17));
-    gap:2px; padding:0 8px;
-  }
-  body.wide .seat-bottom .meld .tile{ width:24px;height:34px;font-size:14px; }
-  body.wide .myrow{ max-width:94vw; gap:10px; }
 
-  /* 橫式螢幕矮：回應面板(吃碰槓胡)整體縮小、限高可捲動，避免按鈕被擠出畫面 */
-  body.wide #respond{
-    padding:10px 14px;gap:6px;min-width:auto;max-width:96vw;
-    max-height:92vh;max-height:calc((var(--vh,1vh) * 100) - 16px);overflow-y:auto;top:42%;
+  /* 吃/碰/槓/胡 獨立發亮視窗 - 比 wideLast 更顯眼 */
+  #wideAction{
+    display:none;position:absolute;z-index:48;
+    background:linear-gradient(180deg, rgba(232,196,104,.98), rgba(180,140,40,.98));
+    color:#1a1004;font-family:'Noto Serif TC',serif;font-weight:900;
+    border:3px solid #fff5d6;border-radius:14px;
+    padding:8px 16px;
+    box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 40px rgba(255,220,120,.9),0 8px 24px rgba(0,0,0,.6);
+    text-align:center;
+    transition:top .35s ease, left .35s ease, transform .35s ease, opacity .25s, box-shadow .35s;
+    pointer-events:none;opacity:0;
   }
+  #wideAction.show{display:block;opacity:1;animation:waPop .45s ease-out;}
+  #wideAction .wa-row{display:flex;align-items:center;justify-content:center;gap:8px;}
+  #wideAction .wa-name{font-size:14px;color:#3a2410;}
+  #wideAction .wa-verb{font-size:28px;line-height:1;text-shadow:0 2px 6px rgba(255,255,255,.6);}
+  #wideAction .wa-tile{margin-top:4px;display:flex;justify-content:center;}
+  #wideAction .wa-tile .tile{width:30px;height:42px;font-size:18px;}
+  #wideAction.win{
+    background:linear-gradient(180deg, #ff7563, #c0392b);
+    color:#fff;border-color:#ffd5cf;
+    box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 50px rgba(255,107,90,.9),0 8px 24px rgba(0,0,0,.6);
+  }
+  #wideAction.win .wa-name{color:#fff;}
+  #wideAction.win .wa-verb{font-size:32px;text-shadow:0 2px 8px rgba(255,255,255,.4);}
+  @keyframes waPop{
+    0%{transform:translateX(-50%) scale(.3) rotate(-8deg);}
+    50%{transform:translateX(-50%) scale(1.2) rotate(3deg);}
+    100%{transform:translateX(-50%) scale(1) rotate(0);}
+  }
+  /* 自己手牌置底:副露+手牌同一myrow,整體置中,副露有金邊背景與手牌視覺區分 */
+  body.wide .seat-bottom{
+    bottom:6px;width:100vw;left:0;transform:none;max-height:none;
+    align-items:center;
+  }
+  body.wide .seat-bottom .hand{
+    --tw: min(40px, calc((92vw - 100px) / 17));
+    gap:2px; padding:0 4px;
+  }
+  body.wide .myrow{ max-width:100vw; gap:8px; padding:0 4px; justify-content:center; align-items:center; }
+  /* 操作按鈕(出 X)貼緊手牌上方 */
+  /* 操作按鈕(出 X)放在名牌右邊,跟名牌中心水平對齊
+     按鈕本身比名牌高,bottom 要比名牌少約 7px(高度差的一半) */
+  body.wide #actions{
+    left:auto;right:auto;transform:none;
+    bottom:calc(min(40px, calc((92vw - 100px)/17)) * 1.4 + 11px);
+    margin-left:160px;
+    justify-content:flex-start;
+    max-width:none;
+    align-items:center;
+  }
+  /* 自己的副露:跟手牌同行(myrow),整組置中。副露在左、手牌在右,中間留間隔 */
+  body.wide .seat-bottom .my-melds{
+    background:rgba(60,46,26,.55);
+    border:1px solid var(--gold-deep);
+    border-radius:6px;
+    padding:3px 5px;
+    gap:3px;
+    max-width:34vw;
+    overflow-x:auto;overflow-y:hidden;
+    flex-shrink:0;
+  }
+  body.wide .seat-bottom .meld{ padding:1px; background:transparent; }
+  body.wide .seat-bottom .meld .tile{ width:18px;height:26px;font-size:11px; }
+  /* 自己的名牌:絕對定位到左下角,不影響myrow置中 */
+  body.wide .seat-bottom .nameplate{
+    position:absolute;left:8px;
+    bottom:calc(min(40px, calc((92vw - 100px)/17)) * 1.4 + 0px);
+    z-index:21;
+    padding:3px 8px;font-size:11px;
+    background:rgba(20,15,10,.85);
+  }
+  body.wide .seat-bottom .nameplate .score{font-size:11px;}
+
+  /* 橫式螢幕矮：回應面板限制在上方+對手條下方的範圍,可捲動,避免按鈕被擠出畫面 */
+  body.wide #respond{
+    padding:10px 14px;gap:6px;min-width:auto;max-width:60vw;
+    /* 貼右邊,不再置中 */
+    top:54px;right:4px;left:auto;transform:none;
+    max-height:calc((var(--vh,1vh) * 100) - 130px);  /* 上留54px、下留76px(自己手牌+空隙) */
+    overflow-y:auto;overflow-x:hidden;
+    /* 滾動條樣式更明顯 */
+    scrollbar-width:thin;scrollbar-color:var(--gold) rgba(20,15,10,.5);
+  }
+  body.wide #respond::-webkit-scrollbar{width:8px;}
+  body.wide #respond::-webkit-scrollbar-track{background:rgba(20,15,10,.5);border-radius:4px;}
+  body.wide #respond::-webkit-scrollbar-thumb{background:var(--gold-deep);border-radius:4px;}
+  body.wide #respond::-webkit-scrollbar-thumb:hover{background:var(--gold);}
   body.wide #respond .rtitle{font-size:14px;}
   body.wide #respond .rtile .tile{width:30px;height:42px;font-size:18px;}
   body.wide #respond .chi-opts{flex-direction:row;flex-wrap:wrap;gap:12px;justify-content:center;}
@@ -225,6 +311,21 @@
     align-items:center;justify-content:center;
     background:rgba(0,0,0,.7);backdrop-filter:blur(3px);
   }
+  /* 橫式:副露彈窗綁定對手位置(不再全螢幕遮罩),點背景關閉的功能要另外處理 */
+  body.wide #oppMeldPopup{
+    inset:auto;background:transparent;backdrop-filter:none;
+    display:none;
+  }
+  body.wide #oppMeldPopup.show{display:block;}
+  body.wide #oppMeldPopup .omp-card{
+    box-shadow:0 0 0 4px rgba(0,0,0,.6),0 8px 28px rgba(0,0,0,.6),0 0 30px rgba(232,196,104,.4);
+    padding:10px 14px;min-width:auto;
+  }
+  body.wide #oppMeldPopup .omp-title{font-size:14px;margin-bottom:6px;}
+  body.wide #oppMeldPopup .omp-list{margin-bottom:6px;gap:6px;}
+  body.wide #oppMeldPopup .omp-meld{padding:3px 5px;}
+  body.wide #oppMeldPopup .omp-tiles .tile{width:18px;height:26px;font-size:11px;}
+  body.wide #oppMeldPopup .omp-close{padding:5px 16px;font-size:12px;}
   #oppMeldPopup .omp-card{
     background:linear-gradient(180deg,#241a10,#15100a);
     border:2px solid var(--gold);border-radius:14px;padding:18px 22px;
@@ -233,13 +334,15 @@
   #oppMeldPopup .omp-title{font-family:'Noto Serif TC',serif;font-size:18px;color:var(--gold);margin-bottom:12px;}
   #oppMeldPopup .omp-empty{color:var(--muted);font-size:14px;padding:14px 0;}
   #oppMeldPopup .omp-list{
-    display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;
+    display:flex;flex-direction:row;flex-wrap:nowrap;gap:10px;
     justify-content:center;margin-bottom:12px;max-width:88vw;
+    overflow-x:auto;overflow-y:hidden;
   }
   #oppMeldPopup .omp-meld{
     display:flex;flex-direction:column;align-items:center;gap:4px;
     padding:6px 8px;background:rgba(60,46,26,.55);
     border:2px solid var(--gold-deep);border-radius:8px;
+    flex-shrink:0;
   }
   #oppMeldPopup .omp-type{color:var(--gold);font-size:12px;font-weight:700;}
   #oppMeldPopup .omp-tiles{display:flex;gap:2px;}
@@ -511,8 +614,92 @@
     75%{opacity:1;transform:translate(-50%,-50%) scale(1);}
     100%{opacity:0;transform:translate(-50%,-50%) scale(1);}
   }
+  /* 橫式:「換你了」改放畫面最左,輪到自己出牌時持續閃爍直到出牌 */
+  body.wide #turnBanner{
+    top:calc(30% + 2px);left:8px;transform:translateY(-50%);
+    font-size:min(7vw,28px);letter-spacing:2px;
+    color:var(--gold);text-shadow:0 0 12px rgba(232,196,104,.8);
+    background:rgba(20,15,10,.7);padding:6px 12px;border-radius:8px;
+    border:1px solid var(--gold);
+  }
+  body.wide #turnBanner.show{animation:wideMyTurn 1s ease-in-out infinite;}
+  @keyframes wideMyTurn{
+    0%,100%{opacity:.4;transform:translateY(-50%) scale(1);}
+    50%{opacity:1;transform:translateY(-50%) scale(1.08);}
+  }
 
-  /* 連線狀態燈 */
+  /* 「還沒輪到你出牌」提示:重疊在自己手牌位置,不擋其他畫面 */
+  #notMyTurn{
+    position:absolute;left:50%;bottom:18%;
+    transform:translateX(-50%) scale(.9);
+    z-index:35;pointer-events:none;opacity:0;
+    background:rgba(192,57,43,.92);color:#fff;
+    font-family:'Noto Serif TC',serif;font-weight:900;font-size:18px;
+    padding:8px 18px;border-radius:10px;
+    border:2px solid #fff5d6;
+    box-shadow:0 4px 16px rgba(0,0,0,.6),0 0 24px rgba(192,57,43,.6);
+    white-space:nowrap;
+    transition:opacity .2s, transform .2s;
+  }
+  #notMyTurn.show{opacity:1;transform:translateX(-50%) scale(1);}
+  /* 橫式:重疊在自己手牌正中央 */
+  body.wide #notMyTurn{
+    bottom:calc(min(40px, calc((92vw - 100px)/17)) * 1.4 / 2 - 4px);
+    font-size:16px;padding:6px 14px;
+  }
+  #actionFlash{
+    position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.6);
+    z-index:55;pointer-events:none;opacity:0;
+    background:rgba(20,12,6,.9);border:3px solid var(--gold);border-radius:18px;
+    padding:14px 28px;box-shadow:0 0 50px rgba(232,196,104,.5),0 0 0 6px rgba(0,0,0,.4);
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-family:'Noto Serif TC',serif;color:var(--gold);text-align:center;
+  }
+  #actionFlash .af-name{font-size:min(5vw,22px);color:var(--text);font-weight:700;}
+  #actionFlash .af-act{font-size:min(13vw,64px);font-weight:900;line-height:1;
+    text-shadow:0 4px 20px rgba(0,0,0,.8),0 0 30px rgba(232,196,104,.6);}
+  #actionFlash .af-act.af-win{color:#ff6b5a;}
+  #actionFlash .af-tile{font-size:min(6vw,28px);font-weight:700;}
+  #actionFlash .af-tai{font-size:min(4vw,18px);color:var(--text);}
+  #actionFlash.show{animation:actionFlashPop 1.8s ease-out forwards;}
+  @keyframes actionFlashPop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}
+    12%{opacity:1;transform:translate(-50%,-50%) scale(1.1);}
+    25%{transform:translate(-50%,-50%) scale(1);}
+    80%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(.95);}
+  }
+  /* 橫式專用:玩家旁邊的動作徽章(取代中央大字彈窗,綁定到玩家位置) */
+  .action-badge{
+    display:flex;align-items:center;gap:4px;
+    background:linear-gradient(180deg, rgba(232,196,104,.95), rgba(180,140,40,.95));
+    color:#2a1d05;font-family:'Noto Serif TC',serif;font-weight:900;
+    border-radius:8px;padding:3px 8px;
+    box-shadow:0 3px 12px rgba(0,0,0,.5),0 0 0 2px var(--gold-deep);
+    z-index:30;white-space:nowrap;
+    animation:abPop .35s ease-out;
+    transition:opacity .4s, filter .4s, box-shadow .4s;
+  }
+  .action-badge .ab-act{font-size:14px;line-height:1;}
+  .action-badge .ab-act.ab-win{color:#a93226;}
+  .action-badge .ab-tile{display:inline-flex;align-items:center;width:18px;height:24px;overflow:hidden;}
+  /* 自己:徽章在手牌上方(seat-bottom 是 absolute,徽章用相對它的絕對定位) */
+  body.wide .seat-bottom{ position:absolute; }
+  body.wide .action-badge.ab-self{
+    position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  }
+  /* 對手:徽章接在對手條卡片下方 */
+  body.wide #wideOppBar{ position:absolute; }
+  body.wide .action-badge.ab-opp{
+    position:absolute;top:calc(100% + 4px);
+  }
+  /* 舊動作淡化(目前實作:同時只顯示一個最新,因此 .dim 暫不啟用,留樣式備用) */
+  .action-badge.dim{opacity:.35;filter:grayscale(.5);box-shadow:none;}
+  @keyframes abPop{
+    0%{opacity:0;transform:translateX(-50%) scale(.6);}
+    60%{opacity:1;transform:translateX(-50%) scale(1.1);}
+    100%{transform:translateX(-50%) scale(1);}
+  }
   #conn{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
   #conn .dot{width:8px;height:8px;border-radius:50%;background:#888;}
   #conn .dot.on{background:#3ad17a;box-shadow:0 0 8px #3ad17a;}
@@ -739,6 +926,7 @@
 
   <!-- 橫式寬敞版專用：頂部三家對手條 + 中央最近打出的牌（僅 body.wide 顯示） -->
   <div id="wideOppBar"></div>
+  <div id="wideWall"></div>
   <div id="wideLast"><span class="wl-label"></span><span class="wl-tile" id="wideLastTile"></span></div>
 
   <!-- 操作列 -->
@@ -1621,7 +1809,8 @@ function drawTile(seat){
   G.justDrawn = t;
   G.wallCount = G.deck.length - G.deckPos;
   G.turnState = 'discard';
-  G.lastDiscard = null;
+  // 注意:刻意不清 G.lastDiscard,讓「上一家打出的牌」保留在中央顯示,
+  // 直到本家打牌時自然覆蓋,避免「剛打出就被下家摸牌清空、看不到」的閃現問題
   G.log = G.players[seat].name+' 摸牌';
   // 自摸判斷由該玩家 UI 處理（顯示胡按鈕）
   pushG();
@@ -1638,6 +1827,7 @@ function discardTile(seat, tile){
   G.lastDiscard = {seat, tile};
   G.justDrawn = null;
   G.log = p.name+' 打出 '+MJ.zhTile(tile);
+  G.actionFlash = {type:'discard', seat, tile, name:p.name, ts:Date.now()};
 
   // 詢問其他三家是否要 吃/碰/槓/胡
   const responders = computeResponders(seat, tile);
@@ -1764,12 +1954,14 @@ function doPongKong(seat, tile, kind){
     p.melds.push({type:'pong', tile, tiles:[tile,tile,tile], from:G.lastDiscard.seat});
     G.turn=seat; G.turnState='discard'; G.pending=null; G.lastDiscard=null; G.justDrawn=null;
     G.log=p.name+' 碰 '+MJ.zhTile(tile);
+    G.actionFlash={type:'pong', seat, tile, name:p.name, ts:Date.now()};
     pushG(); speak(p.name+'碰');
   }else{ // 明槓
     removeN(p.hand, tile, 3);
     p.melds.push({type:'kong', tile, tiles:[tile,tile,tile,tile], from:G.lastDiscard.seat});
     G.pending=null; G.lastDiscard=null;
     G.log=p.name+' 槓 '+MJ.zhTile(tile)+'，補牌';
+    G.actionFlash={type:'kong', seat, tile, name:p.name, ts:Date.now()};
     // 槓後從牌尾補一張（簡化：從牌牆尾端）
     kongDraw(seat);
     speak(p.name+'槓');
@@ -1789,6 +1981,7 @@ function doChi(seat, tile, payload){
   p.melds.push({type:'chi', tile, tiles, from:G.lastDiscard.seat});
   G.turn=seat; G.turnState='discard'; G.pending=null; G.lastDiscard=null; G.justDrawn=null;
   G.log=p.name+' 吃 '+MJ.zhTile(tile);
+  G.actionFlash={type:'chi', seat, tile, name:p.name, ts:Date.now()};
   pushG(); speak(p.name+'吃');
 }
 
@@ -1880,6 +2073,7 @@ function settleWin(seat, winTile, selfDraw){
   };
   G._afterKong=false;
   G.log=p.name+(selfDraw?' 自摸！':' 胡牌！')+' '+taiTotal+' 台';
+  G.actionFlash={type:selfDraw?'tsumo':'win', seat, tile:winTile, name:p.name, tai:taiTotal, ts:Date.now()};
   pushG();
   speak(p.name+(selfDraw?'自摸':'胡牌')+'，'+taiTotal+'台');
 }
@@ -2122,6 +2316,174 @@ function render(){
   renderRespond();
   renderResult();
   checkMyTurnAlert();
+  checkActionFlash();
+  positionWideLast();      // 橫式:中央「打出X」框隨行動玩家移到該玩家旁邊;自己行動時回中央
+  // 橫式:把手牌往左偏移半個副露寬度,讓「副露+手牌」整體在畫面正中央
+  adjustWideHandCenter();
+}
+
+/* 偵測有人吃碰槓胡 → 中央彈出大字提示讓所有人看清楚發生什麼 */
+let _lastActionFlashTs = 0;
+function checkActionFlash(){
+  if(!G || !G.actionFlash) return;
+  const af = G.actionFlash;
+  if(af.ts === _lastActionFlashTs) return;   // 同一次,不重複顯示
+  _lastActionFlashTs = af.ts;
+  // 自己做的動作不必再彈(自己很清楚做了什麼);只給其他人看
+  if(af.seat === mySeat) return;
+  // 橫式:動作徽章已顯示在該玩家旁邊,不再用中央大字彈窗
+  if(document.body.classList.contains('wide')) return;
+  showActionFlash(af);
+}
+
+/* 橫式:中央「○○ 打出 X」框隨行動玩家移動位置
+   - 對手做動作 → 移到該對手卡片正下方
+   - 自己做動作 / 無人或不適用時 → 回到畫面中央
+   打牌走 wideLast(穩定低調),碰吃槓胡走 wideAction(獨立、發亮、顯眼) */
+function positionWideLast(){
+  if(!document.body.classList.contains('wide')) return;
+  const wl = document.getElementById('wideLast');
+  const wt = document.getElementById('wideLastTile');
+  if(!wl || !wt) return;
+  const lbl = wl.querySelector('.wl-label');
+
+  // 找出最新動作:比較 actionFlash 跟 lastDiscard
+  let latest = null;
+  const af = G.actionFlash;
+  const ld = G.lastDiscard;
+  const ldTs = (_lastShownDiscard && ld && _lastShownDiscard.seat===ld.seat && _lastShownDiscard.tile===ld.tile) ? _lastShownDiscard.ts : 0;
+  const afTs = af ? (af.ts||0) : 0;
+  if(afTs > ldTs && af){
+    latest = { seat:af.seat, type:af.type, tile:af.tile, name:af.name, ts:afTs };
+  }else if(ld){
+    latest = { seat:ld.seat, type:'discard', tile:ld.tile, name:G.players[ld.seat].name, ts:ldTs };
+  }
+
+  // ---- wideLast:只顯示「打出」(穩定背景顯示),其他動作不在這裡顯示 ----
+  // 取「最近一次打牌」(可能不是 latest):用 _lastShownDiscard
+  const ldShow = _lastShownDiscard;
+  wt.innerHTML='';
+  if(!ldShow){
+    if(lbl) lbl.textContent='';
+    wl.style.display='none';
+  }else{
+    const who = G.players[ldShow.seat];
+    if(lbl) lbl.textContent = (who?who.name:'') + ' 打出';
+    wt.appendChild(tileEl(ldShow.tile));
+    wl.style.display='flex';
+    // 定位:打牌玩家對應位置
+    if(ldShow.seat === mySeat){
+      // 自己:放畫面右側,跟左邊的「換你了」對稱平衡
+      wl.style.left='auto';
+      wl.style.right='8px';
+      wl.style.top='50%';
+      wl.style.bottom='auto';
+      wl.style.transform='translateY(-50%)';
+    }else{
+      wl.style.right='auto';
+      wl.style.bottom='auto';
+      positionElByOpp(wl, ldShow.seat);
+    }
+  }
+
+  // ---- wideAction:單獨彈出顯示「吃/碰/槓/胡/自摸」,發亮、顯眼 ----
+  showWideAction(latest);
+}
+
+/* 把元素定位到對手卡片下方 */
+function positionElByOpp(el, seat){
+  const oppCard = document.querySelector('#wideOppBar .opp[data-seat="'+seat+'"]');
+  const tableEl = document.getElementById('table');
+  if(!oppCard || !tableEl) return;
+  const rect = oppCard.getBoundingClientRect();
+  const tRect = tableEl.getBoundingClientRect();
+  const cx = rect.left - tRect.left + rect.width/2;
+  const top = rect.bottom - tRect.top + 8;
+  el.style.left = cx + 'px';
+  el.style.right = 'auto';
+  el.style.top  = top + 'px';
+  el.style.bottom = 'auto';
+  el.style.transform = 'translateX(-50%)';
+}
+
+/* 顯示「吃/碰/槓/胡/自摸」獨立發亮視窗,綁定到該玩家位置 */
+let _lastWideActionKey = '';
+function showWideAction(latest){
+  let el = document.getElementById('wideAction');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'wideAction';
+    document.getElementById('table').appendChild(el);
+  }
+  // 只在「吃碰槓胡自摸」時顯示;打牌不顯示在這裡
+  if(!latest || latest.type==='discard' || !['pong','kong','chi','win','tsumo'].includes(latest.type)){
+    el.classList.remove('show');
+    return;
+  }
+  const key = latest.seat+'_'+latest.type+'_'+latest.tile+'_'+latest.ts;
+  if(key === _lastWideActionKey) return;     // 同一次,不重彈
+  _lastWideActionKey = key;
+  const verb =
+    latest.type==='pong'  ? '碰' :
+    latest.type==='kong'  ? '槓' :
+    latest.type==='chi'   ? '吃' :
+    latest.type==='win'   ? '胡!' :
+    latest.type==='tsumo' ? '自摸!' : '';
+  const isWin = latest.type==='win' || latest.type==='tsumo';
+  el.className = isWin? 'win' : '';
+  el.innerHTML =
+    '<div class="wa-row"><span class="wa-name">'+escapeHtml(latest.name||'')+'</span>'+
+    '<span class="wa-verb">'+verb+'</span></div>'+
+    (latest.tile? '<div class="wa-tile"></div>' : '');
+  if(latest.tile){
+    const tw = el.querySelector('.wa-tile');
+    if(tw) tw.appendChild(tileEl(latest.tile));
+  }
+  // 定位:綁玩家位置
+  if(latest.seat === mySeat){
+    // 自己:用 transform:translateX(-50%) 對齊水平中央(與動畫一致,避免動畫期間跳位)
+    // 垂直用 top 直接放在畫面 40% 高,稍微偏上免擋手牌
+    el.style.left='50%';
+    el.style.top='34%';
+    el.style.transform='translateX(-50%)';
+  }else{
+    positionElByOpp(el, latest.seat);
+  }
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  // 2.5 秒後自動隱藏
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(()=>{ el.classList.remove('show'); _lastWideActionKey=''; }, 2500);
+}
+function showActionFlash(af){
+  let el = document.getElementById('actionFlash');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'actionFlash';
+    document.getElementById('table').appendChild(el);
+  }
+  const typeLabel =
+    af.type==='pong' ? '碰' :
+    af.type==='kong' ? '槓' :
+    af.type==='chi'  ? '吃' :
+    af.type==='win'  ? '胡' :
+    af.type==='tsumo'? '自摸' : '';
+  if(!typeLabel) return;
+  const tileText = af.tile ? MJ.zhTile(af.tile) : '';
+  const isWin = af.type==='win' || af.type==='tsumo';
+  el.innerHTML =
+    '<div class="af-name">'+ (af.name||'') +'</div>' +
+    '<div class="af-act'+(isWin?' af-win':'')+'">'+ typeLabel +'</div>' +
+    (tileText? '<div class="af-tile">'+tileText+'</div>' : '') +
+    (af.tai? '<div class="af-tai">'+af.tai+' 台</div>' : '');
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+}
+
+/* 橫式:手牌位置補償副露佔的寬度,讓整體視覺置中 */
+function adjustWideHandCenter(){
+  // 副露已放回myrow跟手牌同一flex流,flex本身會把「副露+手牌」整體置中
+  // 不再需要JS手動偏移
+  const hand=document.querySelector('#seatBottom .myhand');
+  if(hand) hand.style.transform='';
 }
 
 /* 橫式寬敞版：頂部三家對手條 + 中央最近打出的牌 */
@@ -2137,6 +2499,7 @@ function renderWideOpp(){
     const meldCount=(p.melds||[]).length;
     const el=document.createElement('div');
     el.className='opp'+(active?' active':'')+(meldCount?' has-melds':'');
+    el.dataset.seat = String(seat);
     el.innerHTML=
       '<span class="wind-badge">'+WIND_ZH[p.wind]+'</span>'+
       '<span class="nm">'+escapeHtml(p.name)+'</span>'+
@@ -2148,19 +2511,22 @@ function renderWideOpp(){
     el.onclick=()=>showOppMelds(seat);   // 點擊查看副露
     bar.appendChild(el);
   });
-  // 中央最近打出的牌
-  const wl=$('wideLast'), wt=$('wideLastTile'), lbl=wl?wl.querySelector('.wl-label'):null;
-  if(wt){
-    wt.innerHTML='';
-    if(G.lastDiscard){
-      const who=G.players[G.lastDiscard.seat];
-      if(lbl) lbl.textContent=who.name+' 打出';
-      wt.appendChild(tileEl(G.lastDiscard.tile));
-    }else{
-      if(lbl) lbl.textContent='';
-    }
+  // 中央打出的牌:保留最近一次有值的紀錄,避免下一家摸牌瞬間清空看不到
+  // (內容渲染與位置由 positionWideLast 接管,這裡只負責更新 _lastShownDiscard 時間戳)
+  if(G.lastDiscard){
+    _lastShownDiscard = { seat:G.lastDiscard.seat, tile:G.lastDiscard.tile, ts:Date.now() };
   }
+  // 新局/結算/被踢出 → 清空殘留的上次打出顯示
+  if(G.phase!=='playing' && G.phase!=='over'){ _lastShownDiscard=null; }
+  else if(G.phase==='playing' && !G.lastDiscard){
+    const noOneDiscarded = G.players.every(p=>!p.discards || p.discards.length===0);
+    if(noOneDiscarded) _lastShownDiscard=null;
+  }
+  // 橫式中央剩餘牌牆顯示
+  const wallEl=$('wideWall');
+  if(wallEl) wallEl.textContent = '牌牆 '+(G.wallCount!=null?G.wallCount:'--');
 }
+let _lastShownDiscard = null;
 
 /* 顯示對手副露(吃碰槓)詳情:點擊對手條後彈出 */
 function showOppMelds(seat){
@@ -2168,9 +2534,16 @@ function showOppMelds(seat){
   let pop=$('oppMeldPopup');
   if(!pop){
     pop=document.createElement('div'); pop.id='oppMeldPopup';
-    pop.onclick=(e)=>{ if(e.target===pop) pop.style.display='none'; };
+    pop.onclick=(e)=>{ if(e.target===pop){ pop.style.display='none'; pop.classList.remove('show'); pop.dataset.openSeat=''; } };
     $('table').appendChild(pop);
   }
+  // 若同一對手再次點 → 視為切換關閉(避免關閉鈕被擠出視野時點不到)
+  const isOpen = pop.classList.contains('show') || pop.style.display==='flex' || pop.style.display==='block';
+  if(isOpen && String(pop.dataset.openSeat||'') === String(seat)){
+    pop.style.display='none'; pop.classList.remove('show'); pop.dataset.openSeat='';
+    return;
+  }
+  pop.dataset.openSeat = String(seat);
   const melds=p.melds||[];
   let html='<div class="omp-card"><div class="omp-title">'+escapeHtml(p.name)+' 的副露</div>';
   if(melds.length===0){
@@ -2185,21 +2558,65 @@ function showOppMelds(seat){
   }
   html+='<button class="omp-close">關閉</button></div>';
   pop.innerHTML=html;
-  // 動態插入牌(用tileEl避免HTML注入)
   const meldRows=pop.querySelectorAll('.omp-meld .omp-tiles');
   melds.forEach((m,i)=>{
     const row=meldRows[i]; if(!row) return;
     const tiles = m.type==='ankong' ? [null,null,null,null] : m.tiles;
     tiles.forEach(t=> row.appendChild(t? tileEl(t) : tileEl(null,{back:true})));
   });
-  pop.querySelector('.omp-close').onclick=()=>{ pop.style.display='none'; };
-  pop.style.display='flex';
+  pop.querySelector('.omp-close').onclick=()=>{
+    pop.style.display='none'; pop.classList.remove('show'); pop.dataset.openSeat='';
+  };
+  // 橫式:彈窗綁定到該對手卡片下方;其他模式:畫面置中遮罩
+  if(document.body.classList.contains('wide')){
+    pop.classList.add('show');
+    pop.style.display='block';
+    // 對齊該對手卡片下方,水平方向依空間自適應
+    const oppCard = document.querySelector('#wideOppBar .opp[data-seat="'+seat+'"]');
+    const tableEl = document.getElementById('table');
+    if(oppCard && tableEl){
+      const rect = oppCard.getBoundingClientRect();
+      const tRect = tableEl.getBoundingClientRect();
+      const cx = rect.left - tRect.left + rect.width/2;       // 卡片水平中心(相對 table)
+      const top = rect.bottom - tRect.top + 8;
+      const tableW = tRect.width;
+      // 先測量彈窗實際寬度
+      pop.style.left = cx + 'px';
+      pop.style.top  = top + 'px';
+      pop.style.transform = 'translateX(-50%)';
+      // 用測量值決定方向:先讓它先 render,再讀寬度做修正
+      requestAnimationFrame(()=>{
+        const popW = pop.offsetWidth || 200;
+        const halfW = popW/2;
+        const leftEdge = cx - halfW;     // 置中時的左邊界
+        const rightEdge = cx + halfW;    // 置中時的右邊界
+        const MARGIN = 8;
+        if(rightEdge > tableW - MARGIN){
+          // 右邊超出 → 改成「靠右邊框」(視窗右邊界=畫面右-margin),即從卡片往左延伸
+          pop.style.left = (tableW - MARGIN) + 'px';
+          pop.style.transform = 'translateX(-100%)';
+        }else if(leftEdge < MARGIN){
+          // 左邊超出 → 改成「靠左邊框」(視窗左邊界=margin),即從卡片往右延伸
+          pop.style.left = MARGIN + 'px';
+          pop.style.transform = 'translateX(0)';
+        }
+        // 否則保持置中(預設)
+      });
+    }
+    // 橫式時點別處不會自動關(因為沒全螢幕遮罩),按關閉鈕關
+  }else{
+    pop.classList.remove('show');
+    pop.style.display='flex';
+    pop.style.left=''; pop.style.top=''; pop.style.transform='';
+  }
 }
 
 /* 偵測「剛輪到我出牌 / 我需要回應」→ 觸發明顯提醒（橫幅+光暈+震動+語音） */
 let _wasMyTurn = false;
 function checkMyTurnAlert(){
-  if(mySeat<0 || !G || G.phase!=='playing'){ setTurnAlert(false); _wasMyTurn=false; return; }
+  if(mySeat<0 || !G || G.phase!=='playing'){
+    setTurnAlert(false); setMyDiscardBanner(false); _wasMyTurn=false; return;
+  }
   // 「該我動作」= 輪到我摸/打，或 我在待回應名單且還沒回應
   const myDiscardTurn = (G.turn===mySeat && (G.turnState==='draw'||G.turnState==='discard'));
   const myRespond = !!(G.pending && G.pending.responders &&
@@ -2207,8 +2624,10 @@ function checkMyTurnAlert(){
     !(G.pending.responses||{})[mySeat]);
   const myTurn = myDiscardTurn || myRespond;
   setTurnAlert(myTurn);
+  // 橫式:輪到我出牌時持續閃爍「換你了」直到我真的出牌
+  setMyDiscardBanner(myDiscardTurn);
   if(myTurn && !_wasMyTurn){
-    // 從「不是我」變成「是我」→ 觸發一次性提醒
+    // 從「不是我」變成「是我」→ 觸發一次性提醒(震動+語音)
     fireTurnAlert(myRespond);
   }
   _wasMyTurn = myTurn;
@@ -2216,15 +2635,29 @@ function checkMyTurnAlert(){
 function setTurnAlert(on){
   const g=$('turnGlow'); if(g) g.classList.toggle('show', on);
 }
-function fireTurnAlert(isRespond){
-  const b=$('turnBanner');
-  if(b){
-    b.textContent = isRespond? '輪你決定' : '換你了';
-    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+/* 橫式:輪到我出牌時讓「換你了」橫幅持續閃爍,出牌後關閉 */
+function setMyDiscardBanner(on){
+  if(!document.body.classList.contains('wide')) return;
+  const b=$('turnBanner'); if(!b) return;
+  if(on){
+    b.textContent='換你了';
+    b.classList.add('show');
+  }else{
+    b.classList.remove('show');
   }
-  // 手機震動
+}
+function fireTurnAlert(isRespond){
+  // 非橫式:用原本的一次性大字彈出(橫式時 setMyDiscardBanner 已接管)
+  const isWide = document.body.classList.contains('wide');
+  if(!isWide){
+    const b=$('turnBanner');
+    if(b && !isRespond){
+      b.textContent = '換你了';
+      b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+    }
+  }
+  // 手機震動與語音照舊
   try{ if(navigator.vibrate) navigator.vibrate(isRespond?[80,60,80]:200); }catch(e){}
-  // 語音提醒（受靜音開關控制）
   speak(isRespond? '輪你決定' : '換你了');
 }
 
@@ -2310,7 +2743,7 @@ function renderDiscards(){
 /* 點自己的牌 */
 let selectedTile=null;
 function onMyTileClick(tile, el){
-  if(G.turn!==mySeat || G.turnState!=='discard'){ toast('還沒輪到你出牌'); return; }
+  if(G.turn!==mySeat || G.turnState!=='discard'){ showNotMyTurn(); return; }
   // 點兩下出牌、或選取後按出牌鈕
   document.querySelectorAll('#seatBottom .tile.selected').forEach(e=>e.classList.remove('selected'));
   if(selectedTile===tile && el._armed){
@@ -2318,6 +2751,19 @@ function onMyTileClick(tile, el){
   }
   selectedTile=tile; el.classList.add('selected'); el._armed=true;
   setTimeout(()=>{ if(el)el._armed=false; }, 1200);
+}
+/* 還沒輪到我出牌的提示:重疊在自己手牌位置,不擋其他畫面 */
+function showNotMyTurn(){
+  let el = document.getElementById('notMyTurn');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'notMyTurn';
+    document.getElementById('table').appendChild(el);
+  }
+  el.textContent = '還沒輪到你出牌';
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(()=>{ el.classList.remove('show'); }, 1600);
 }
 function doDiscard(tile){ discardTile(mySeat, tile); }
 
