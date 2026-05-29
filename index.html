@@ -458,6 +458,10 @@
   body.compact .seat-bottom .hand.full{
     --tw: min(63.05px, calc((96vw - 30px) / 17 * 0.97));
   }
+  /* 手牌少(<14張,有副露)時手牌放大 1.3 倍 */
+  body.compact .seat-bottom .hand.small{
+    --tw: min(84.5px, calc((96vw - 30px) / 17 * 1.3));
+  }
   /* 直式精簡:自己副露脫離 myrow,絕對定位到手牌上方並縮小,讓手牌獨享空間 */
   body.compact .seat-bottom .my-melds{
     position:absolute;
@@ -639,6 +643,17 @@
   }
   #result h2{font-family:'Noto Serif TC',serif;font-size:30px;color:var(--gold);margin-bottom:4px;}
   #result .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  /* 放槍者:紅底白字+加粗,讓所有人清楚誰放槍 */
+  #result .pao-chunk{
+    display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(180deg,#d24336,#a02218);
+    color:#fff;font-weight:900;font-size:16px;
+    padding:5px 14px;border-radius:10px;
+    border:2px solid #ff9a8a;
+    box-shadow:0 3px 10px rgba(192,57,43,.5),0 0 20px rgba(255,107,90,.5);
+  }
+  #result .pao-name{font-family:'Noto Serif TC',serif;font-size:18px;}
+  #result .pao-tag{font-size:14px;letter-spacing:2px;color:#ffe9a8;}
   #result .tai-list{text-align:left;margin:0 auto 14px;max-width:280px;}
   #result .tai-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--panel-line);font-size:14px;}
   #result .tai-row b{color:var(--gold);}
@@ -1826,6 +1841,9 @@ function newGame(keepDealer){
     seed,
     ts: Date.now(),
   };
+  // 清空殘留的「上一局打出 X」框紀錄,避免新局還顯示上一局最後一張牌
+  _lastShownDiscard = null;
+  _lastWideActionKey = '';
   pushG();
   speak(players[dealer].name+'坐莊');
 }
@@ -2201,6 +2219,8 @@ function newGameWith(keep){
     deck,deckPos:pos,wallCount:deck.length-pos,
     log:WIND_ZH[keep.roundWind]+'圈・'+players[keep.dealer].name+' 坐莊',
     winner:null,result:null,seed,ts:Date.now()};
+  _lastShownDiscard = null;
+  _lastWideActionKey = '';
   pushG();
   speak(players[keep.dealer].name+'坐莊');
 }
@@ -2441,6 +2461,13 @@ function positionWideLast(){
 
   // ---- wideLast:顯示「打出 X」隨打牌玩家位置變動 ----
   // 結算/總結算時隱藏(避免提示框擋住「下一局/看總結算」按鈕)
+  // 驗證 _lastShownDiscard 是否仍真實存在(否則可能是上一局殘留→清空)
+  if(_lastShownDiscard){
+    const p = G.players && G.players[_lastShownDiscard.seat];
+    const tileExists = p && p.discards && p.discards.includes(_lastShownDiscard.tile);
+    // 不在棄牌堆裡 = 上一局殘留 或 已被吃碰槓拿走 → 清空
+    if(!tileExists) _lastShownDiscard = null;
+  }
   const ldShow = _lastShownDiscard;
   const isResulting = (G.phase==='over' || G.phase==='finished');
   wt.innerHTML='';
@@ -2809,6 +2836,8 @@ function renderSeat(container, seat, pos){
   if(isMe){
     // 滿牌(17張,摸完等出)時加 full class,直式精簡會自動縮小
     if(p.hand.length>=17) hand.classList.add('full');
+    // 手牌少(<14張,通常代表有副露佔位)時加 small class,直式精簡放大讓手牌更清楚
+    if(p.hand.length<14) hand.classList.add('small');
     p.hand.forEach(t=>{
       const cls = (t===G.justDrawn && G.justDrawn? 'justdrawn':'');
       const el=tileEl(t,{cls});
@@ -3035,7 +3064,9 @@ function renderResult(){
       c.innerHTML=
         '<h2>'+escapeHtml(p.name)+(r.selfDraw?' 自摸':' 胡牌')+'</h2>'+
         roundTag+
-        '<div class="sub">'+(r.selfDraw?'三家各付':(G.players[r.loser].name+' 放槍'))+'</div>'+
+        '<div class="sub">'+(r.selfDraw
+          ? '三家各付'
+          : ('<span class="pao-chunk"><span class="pao-name">'+escapeHtml(G.players[r.loser].name)+'</span> <span class="pao-tag">放槍</span></span>'))+'</div>'+
         '<div class="winhand" id="rHand"></div>'+
         '<div class="tai-list">'+taiHtml+'</div>'+
         '<div class="total">合計 <b>'+r.taiTotal+'</b> 台（每家付 '+r.payEach+'）</div>'+
