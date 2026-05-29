@@ -402,9 +402,9 @@
   /* 左右兩家:放大空間以容納放大後的牌 */
   body.compact .seat-left, body.compact .seat-right{
     top:10%; bottom:auto; transform:none;
-    max-width:90px; max-height:55vh;
+    max-width:90px; max-height:80vh;
     flex-direction:column; align-items:center;
-    overflow-y:auto; overflow-x:hidden;
+    overflow:visible;
   }
   body.compact .seat-left{ left:2px; }
   body.compact .seat-right{ right:2px; }
@@ -663,7 +663,7 @@
   @keyframes turnPulse{50%{box-shadow:inset 0 0 0 5px var(--gold), inset 0 0 30px rgba(232,196,104,.6);}}
   /* 換你了 橫幅 */
   #turnBanner{
-    position:absolute;top:8%;left:12%;transform:translate(-50%,-50%) scale(.6);
+    position:absolute;top:1%;left:12%;transform:translateX(-50%) scale(.6);
     z-index:45;pointer-events:none;opacity:0;
     font-family:'Noto Serif TC',serif;font-weight:900;font-size:min(10vw,52px);
     color:var(--gold);text-shadow:0 4px 20px rgba(0,0,0,.8),0 0 30px rgba(232,196,104,.6);
@@ -676,8 +676,8 @@
   /* 非橫式:輪到自己出牌時持續脈動閃爍,直到出牌(setMyDiscardBanner 移除 show) */
   body:not(.wide) #turnBanner.show{animation:turnBannerPulse 1.2s ease-in-out infinite;}
   @keyframes turnBannerPulse{
-    0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(.95);}
-    50%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
+    0%,100%{opacity:.5;transform:translateX(-50%) scale(.95);}
+    50%{opacity:1;transform:translateX(-50%) scale(1.08);}
   }
   #turnBanner.show{animation:turnBannerPop 1.6s ease-out forwards;}
   @keyframes turnBannerPop{
