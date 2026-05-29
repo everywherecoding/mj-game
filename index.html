@@ -196,6 +196,7 @@
     background:rgba(20,15,10,.7);padding:6px 14px;border-radius:12px;
     border:1px solid var(--gold-deep);
     width:max-content;            /* 避免被 transition 中的 top/bottom 撐大 */
+    pointer-events:none;          /* 不擋下方按鈕的點擊 */
   }
   /* 橫式才用位置 transition;非橫式直接跳到新位置避免變形閃爍 */
   body.wide #wideLast{
@@ -370,17 +371,20 @@
 
   /* ===== 精簡模式（手機直式自動開啟）=====
      顯示對手牌背(小尺寸,有真實打牌感)+名牌+剩餘張數+副露，放大自己手牌 */
-  body.compact .seat-top .oppbacks .tile.back{ width:18px;height:27px; }   /* 上家牌背 */
+  body.compact .seat-top .oppbacks .tile.back{
+    width:min(18px, calc((96vw - 30px) / 17));
+    height:calc(min(18px, calc((96vw - 30px) / 17)) * 1.5);
+  }
   body.compact .seat-left .oppbacks .tile.back,
   body.compact .seat-right .oppbacks .tile.back{ width:21px;height:15px; } /* 左右家牌背 */
   body.compact .nameplate .hcount{ display:inline; }       /* 同時顯示剩餘張數 */
   /* 上家:固定貼頂; 牌背在上,副露在牌背下方水平排列(對牌背置中) */
-  body.compact .seat-top{ top:4px; max-height:30vh; flex-direction:column; align-items:center; }
+  body.compact .seat-top{ top:4px; max-height:30vh; flex-direction:column; align-items:center; width:100vw; }
   body.compact .seat-top .toprow{
     display:flex; flex-direction:column; align-items:center;   /* 改垂直堆疊:牌背上、副露下 */
     gap:4px; max-width:96vw;
   }
-  body.compact .seat-top .oppbacks{ flex-wrap:wrap; justify-content:center; }
+  body.compact .seat-top .oppbacks{ flex-wrap:nowrap; justify-content:center; max-width:98vw; overflow-x:auto; overflow-y:hidden; }
   body.compact .seat-top .melds{
     flex-direction:row; flex-wrap:wrap; justify-content:center;  /* 副露水平左到右、置中 */
     gap:4px;
@@ -397,7 +401,7 @@
   }
   /* 左右兩家:放大空間以容納放大後的牌 */
   body.compact .seat-left, body.compact .seat-right{
-    top:20%; bottom:auto; transform:none;
+    top:10%; bottom:auto; transform:none;
     max-width:90px; max-height:55vh;
     flex-direction:column; align-items:center;
     overflow-y:auto; overflow-x:hidden;
@@ -577,7 +581,7 @@
   body:not(.wide) .seat-bottom .nameplate{
     position:absolute;
     bottom:calc(min(10vw,64px) + 40px);
-    right:calc(50% + 80px);
+    right:calc(50% + 50px);
     z-index:21;
     background:rgba(20,15,10,.85);
   }
@@ -2432,9 +2436,11 @@ function positionWideLast(){
   }
 
   // ---- wideLast:顯示「打出 X」隨打牌玩家位置變動 ----
+  // 結算/總結算時隱藏(避免提示框擋住「下一局/看總結算」按鈕)
   const ldShow = _lastShownDiscard;
+  const isResulting = (G.phase==='over' || G.phase==='finished');
   wt.innerHTML='';
-  if(!ldShow){
+  if(!ldShow || isResulting){
     if(lbl) lbl.textContent='';
     wl.style.display='none';
   }else{
