@@ -381,13 +381,13 @@
   /* 上家:固定貼頂; 牌背在上,副露在牌背下方水平排列(對牌背置中) */
   body.compact .seat-top{ top:4px; max-height:30vh; flex-direction:column; align-items:center; width:100vw; }
   body.compact .seat-top .toprow{
-    display:flex; flex-direction:column; align-items:center;   /* 改垂直堆疊:牌背上、副露下 */
-    gap:4px; max-width:96vw;
+    display:flex; flex-direction:row; align-items:center; justify-content:center;
+    gap:6px; max-width:98vw; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
   }
-  body.compact .seat-top .oppbacks{ flex-wrap:nowrap; justify-content:center; max-width:98vw; overflow-x:auto; overflow-y:hidden; }
+  body.compact .seat-top .oppbacks{ flex-wrap:nowrap; flex-shrink:0; }
   body.compact .seat-top .melds{
-    flex-direction:row; flex-wrap:wrap; justify-content:center;  /* 副露水平左到右、置中 */
-    gap:4px;
+    flex-direction:row; flex-wrap:nowrap; justify-content:flex-start;
+    gap:4px; flex-shrink:0;
   }
   body.compact .seat-top .meld .tile{ width:20px;height:28px;font-size:11px; }   /* 上家副露跟自己一致 */
   /* 直式精簡:三家副露每組加金邊深色背景,跟自己副露一致 */
@@ -454,9 +454,9 @@
     --tw: min(65px, calc((96vw - 30px) / 17));
     padding:0 6px;
   }
-  /* 滿牌(17張)時手牌縮 0.9 倍 */
+  /* 滿牌(17張)時手牌縮 0.98 倍 */
   body.compact .seat-bottom .hand.full{
-    --tw: min(58.5px, calc((96vw - 30px) / 17 * 0.9));
+    --tw: min(63.7px, calc((96vw - 30px) / 17 * 0.98));
   }
   /* 直式精簡:自己副露脫離 myrow,絕對定位到手牌上方並縮小,讓手牌獨享空間 */
   body.compact .seat-bottom .my-melds{
