@@ -401,7 +401,7 @@
   }
   /* 左右兩家:放大空間以容納放大後的牌 */
   body.compact .seat-left, body.compact .seat-right{
-    top:10%; bottom:auto; transform:none;
+    top:12%; bottom:auto; transform:none;
     max-width:90px; max-height:80vh;
     flex-direction:column; align-items:center;
     overflow:visible;
@@ -672,7 +672,7 @@
   /* 直式精簡:「換你了」往右移多一點(避開上家牌背左邊) */
   body.compact #turnBanner{ left:17%; }
   /* 完整佈局(非橫式非精簡):換你了再往左一點 */
-  body:not(.wide):not(.compact) #turnBanner{ left:8%; }
+  body:not(.wide):not(.compact) #turnBanner{ left:6%; }
   /* 非橫式:輪到自己出牌時持續脈動閃爍,直到出牌(setMyDiscardBanner 移除 show) */
   body:not(.wide) #turnBanner.show{animation:turnBannerPulse 1.2s ease-in-out infinite;}
   @keyframes turnBannerPulse{
