@@ -389,7 +389,7 @@
     flex-direction:row; flex-wrap:wrap; justify-content:center;  /* 副露水平左到右、置中 */
     gap:4px;
   }
-  body.compact .seat-top .meld .tile{ width:30px;height:44px;font-size:15px; }   /* 上家副露縮小 */
+  body.compact .seat-top .meld .tile{ width:20px;height:28px;font-size:11px; }   /* 上家副露跟自己一致 */
   /* 直式精簡:三家副露每組加金邊深色背景,跟自己副露一致 */
   body.compact .seat-top .meld,
   body.compact .seat-left .meld,
@@ -453,6 +453,10 @@
   body.compact .seat-bottom .hand{
     --tw: min(65px, calc((96vw - 30px) / 17));
     padding:0 6px;
+  }
+  /* 滿牌(17張)時手牌縮 0.9 倍 */
+  body.compact .seat-bottom .hand.full{
+    --tw: min(58.5px, calc((96vw - 30px) / 17 * 0.9));
   }
   /* 直式精簡:自己副露脫離 myrow,絕對定位到手牌上方並縮小,讓手牌獨享空間 */
   body.compact .seat-bottom .my-melds{
@@ -670,9 +674,9 @@
     white-space:nowrap;
   }
   /* 直式精簡:「換你了」往右移多一點(避開上家牌背左邊) */
-  body.compact #turnBanner{ left:17%; }
+  body.compact #turnBanner{ left:17%; color:#ff5a4a; text-shadow:0 4px 20px rgba(0,0,0,.8),0 0 30px rgba(255,90,74,.7); }
   /* 完整佈局(非橫式非精簡):換你了再往左一點 */
-  body:not(.wide):not(.compact) #turnBanner{ left:6%; }
+  body:not(.wide):not(.compact) #turnBanner{ left:6.5%; }
   /* 非橫式:輪到自己出牌時持續脈動閃爍,直到出牌(setMyDiscardBanner 移除 show) */
   body:not(.wide) #turnBanner.show{animation:turnBannerPulse 1.2s ease-in-out infinite;}
   @keyframes turnBannerPulse{
@@ -2803,6 +2807,8 @@ function renderSeat(container, seat, pos){
   // 手牌
   const hand=document.createElement('div'); hand.className='hand'+(isMe?' myhand':' oppbacks');
   if(isMe){
+    // 滿牌(17張,摸完等出)時加 full class,直式精簡會自動縮小
+    if(p.hand.length>=17) hand.classList.add('full');
     p.hand.forEach(t=>{
       const cls = (t===G.justDrawn && G.justDrawn? 'justdrawn':'');
       const el=tileEl(t,{cls});
