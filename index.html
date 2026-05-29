@@ -466,7 +466,7 @@
   body.compact .seat-bottom .my-melds{
     position:absolute;
     left:50%;transform:translateX(-50%);
-    bottom:calc(min(65px,calc((96vw - 30px)/17)) * 1.4 + 6px);  /* 緊貼手牌頂部上方一點(在「出X」按鈕下方) */
+    bottom:calc(min(65px,calc((96vw - 30px)/17)) * 1.4 + 14px);  /* 手牌頂部上方一點,稍離手牌不重疊 */
     z-index:18;
     background:rgba(60,46,26,.7);
     border:1px solid var(--gold-deep);
@@ -606,6 +606,35 @@
     animation:winglow 1s infinite;}
   @keyframes winglow{50%{box-shadow:0 0 18px rgba(231,76,60,.8);}}
   .act-btn.pass{background:#241a10;color:var(--muted);border:1px solid var(--panel-line);}
+
+  /* 自摸胡按鈕:超大、紅色發光、彈跳吸睛,避免錯過 */
+  .act-btn.big-win{
+    font-size:24px;font-weight:900;padding:14px 36px;letter-spacing:3px;
+    background:linear-gradient(180deg,#ff7563,#c0392b);
+    color:#fff;border:3px solid #fff5d6;border-radius:14px;
+    box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 40px rgba(255,107,90,.9),0 8px 20px rgba(0,0,0,.6);
+    animation:bigWinPulse .9s ease-in-out infinite;
+    flex-basis:100%;text-align:center;        /* 獨占一行 */
+    margin:2px 0;
+  }
+  @keyframes bigWinPulse{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 40px rgba(255,107,90,.9),0 8px 20px rgba(0,0,0,.6);}
+    50%{transform:scale(1.06);box-shadow:0 0 0 4px rgba(0,0,0,.5),0 0 60px rgba(255,150,130,1),0 8px 20px rgba(0,0,0,.6);}
+  }
+  /* 暗槓/加槓按鈕:大金色,不像胡那麼大但仍醒目 */
+  .act-btn.big-kong{
+    font-size:18px;font-weight:900;padding:10px 24px;letter-spacing:2px;
+    background:linear-gradient(180deg,#f4d77a,#c89938);
+    color:#2a1d05;border:2px solid #fff5d6;border-radius:12px;
+    box-shadow:0 0 0 3px rgba(0,0,0,.4),0 0 24px rgba(232,196,104,.7),0 4px 12px rgba(0,0,0,.5);
+    animation:bigKongPulse 1.2s ease-in-out infinite;
+    flex-basis:100%;text-align:center;
+    margin:2px 0;
+  }
+  @keyframes bigKongPulse{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.04);box-shadow:0 0 0 3px rgba(0,0,0,.4),0 0 36px rgba(255,220,120,.9),0 4px 12px rgba(0,0,0,.5);}
+  }
 
   /* ---------- 回應面板（被詢問吃碰槓胡時） ---------- */
   #respond{
@@ -2416,7 +2445,6 @@ function render(){
   renderRespond();
   renderResult();
   checkMyTurnAlert();
-  checkActionFlash();
   positionWideLast();      // 橫式:中央「打出X」框隨行動玩家移到該玩家旁邊;自己行動時回中央
   // 橫式:把手牌往左偏移半個副露寬度,讓「副露+手牌」整體在畫面正中央
   adjustWideHandCenter();
@@ -2836,7 +2864,7 @@ function renderSeat(container, seat, pos){
   if(isMe){
     // 滿牌(17張,摸完等出)時加 full class,直式精簡會自動縮小
     if(p.hand.length>=17) hand.classList.add('full');
-    // 手牌少(<14張,通常代表有副露佔位)時加 small class,直式精簡放大讓手牌更清楚
+    // 手牌少(<15張,通常代表有副露佔位)時加 small class,直式精簡放大讓手牌更清楚
     if(p.hand.length<14) hand.classList.add('small');
     p.hand.forEach(t=>{
       const cls = (t===G.justDrawn && G.justDrawn? 'justdrawn':'');
@@ -2931,18 +2959,18 @@ function renderActions(){
   if(G.phase!=='playing' || mySeat<0) return;
   if(G.turn===mySeat && G.turnState==='discard'){
     const p=G.players[mySeat];
-    // 自摸？
+    // 自摸？→ 用 .big-win 樣式:大紅按鈕、置中、發光、最醒目
     if(G.justDrawn && MJ.isWinningHand(p.hand, p.melds.length)){
-      addBtn(box,'自摸胡','win',()=>declareSelfWin(mySeat));
+      addBtn(box,'★ 自摸胡 ★','win big-win',()=>declareSelfWin(mySeat));
     }
-    // 暗槓？
+    // 暗槓?→ 用 .big-kong 樣式:大金按鈕,但小於胡
     const ak=MJ.getConcealedKongs(p.hand);
     if(ak.length){
-      ak.forEach(t=> addBtn(box,'暗槓'+MJ.zhTile(t),'',()=>declareAnkong(mySeat,t)));
+      ak.forEach(t=> addBtn(box,'暗槓 '+MJ.zhTile(t),'big-kong',()=>declareAnkong(mySeat,t)));
     }
-    // 加槓？
+    // 加槓?
     p.melds.filter(m=>m.type==='pong').forEach(m=>{
-      if(p.hand.includes(m.tile)) addBtn(box,'加槓'+MJ.zhTile(m.tile),'',()=>addKong(mySeat,m.tile));
+      if(p.hand.includes(m.tile)) addBtn(box,'加槓 '+MJ.zhTile(m.tile),'big-kong',()=>addKong(mySeat,m.tile));
     });
     // 出牌提示
     if(selectedTile) addBtn(box,'出 '+MJ.zhTile(selectedTile),'primary',()=>{doDiscard(selectedTile);selectedTile=null;});
