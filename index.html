@@ -466,8 +466,9 @@
   }
   body.compact .seat-bottom .meld{ flex-shrink:0; padding:1px; background:transparent; }
   body.compact .seat-bottom .meld .tile{ width:20px;height:28px;font-size:11px; }   /* 自己副露縮小 */
-  /* 直式精簡:myrow 不再含副露,純粹是手牌 */
-  body.compact .myrow{ justify-content:center; }
+  /* 直式精簡:myrow 不再含副露,純粹是手牌;z-index 高於副露 */
+  body.compact .myrow{ justify-content:center; position:relative; z-index:19; }
+  body.compact .seat-bottom .myhand{ position:relative; z-index:19; }
 
   /* ---------- 麻將牌通用樣式 ---------- */
   .tile{
